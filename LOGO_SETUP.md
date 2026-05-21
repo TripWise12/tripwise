@@ -7,7 +7,7 @@
 3. Place it here:
 
 ```
-tripiq/
+tripwise/
 └── frontend/
     └── public/
         └── logo.png   ← PUT IT HERE

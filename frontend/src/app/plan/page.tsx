@@ -7,9 +7,7 @@ import {
   Zap, Mountain, Coffee, UtensilsCrossed, ShoppingBag,
   Building2, Baby, Backpack, Waves, Check, Loader2, MessageSquare
 } from 'lucide-react'
-
 import { useAuth } from '@/context/AuthContext'
-import { signInWithGoogle } from '@/lib/firebase'
 
 const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
 
@@ -41,6 +39,7 @@ const LOADING_MESSAGES = [
   'Crafting your day-by-day plan...',
   'Building your packing list...',
   'Calculating real costs...',
+  'Saving your trip...',
   'Almost ready...',
 ]
 
@@ -82,11 +81,9 @@ function PlanContent() {
     personal_notes: '',
   })
 
-  // Redirect to home if not signed in
+  // Auth guard
   useEffect(() => {
-    if (!authLoading && !user) {
-      router.replace('/')
-    }
+    if (!authLoading && !user) router.replace('/')
   }, [user, authLoading, router])
 
   useEffect(() => {
@@ -96,22 +93,22 @@ function PlanContent() {
   }, [loading])
 
   function update(key: keyof TripData, val: unknown) {
-    setData(d => ({...d, [key]: val}))
+    setData(d => ({ ...d, [key]: val }))
   }
-
   function toggleArr(key: 'interests' | 'dietary', val: string) {
     setData(d => {
       const arr = d[key] as string[]
-      return {...d, [key]: arr.includes(val) ? arr.filter(x => x !== val) : [...arr, val]}
+      return { ...d, [key]: arr.includes(val) ? arr.filter(x => x !== val) : [...arr, val] }
     })
   }
 
   async function handleGenerate() {
     setLoading(true)
     try {
+      // Run viability + itinerary in parallel
       const [vRes, iRes] = await Promise.all([
         fetch(`${API}/api/viability`, {
-          method: 'POST', headers: {'Content-Type':'application/json'},
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             destination: data.destination, origin: data.origin,
             start_date: data.start_date, end_date: data.end_date,
@@ -119,19 +116,63 @@ function PlanContent() {
           }),
         }),
         fetch(`${API}/api/generate-itinerary`, {
-          method: 'POST', headers: {'Content-Type':'application/json'},
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(data),
         }),
       ])
 
+      if (!vRes.ok || !iRes.ok) throw new Error('AI generation failed')
+
       const viability = await vRes.json()
       const itinerary = await iRes.json()
 
-      sessionStorage.setItem('tripiq_viability', JSON.stringify(viability))
-      sessionStorage.setItem('tripiq_itinerary', JSON.stringify(itinerary))
-      sessionStorage.setItem('tripiq_tripdata', JSON.stringify(data))
+      // Save to sessionStorage for immediate display
+      sessionStorage.setItem('tripwise_viability', JSON.stringify(viability))
+      sessionStorage.setItem('tripwise_itinerary', JSON.stringify(itinerary))
+      sessionStorage.setItem('tripwise_tripdata', JSON.stringify(data))
 
-      router.push('/trip/new')
+      // Save to Supabase via backend
+      let savedTripId: string | null = null
+      if (user) {
+        try {
+          const title = `${data.origin} → ${data.destination}`
+          const saveRes = await fetch(`${API}/api/trips`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              user_id:          user.uid,
+              user_email:       user.email,
+              user_name:        user.displayName,
+              title,
+              destination:      data.destination,
+              origin:           data.origin,
+              start_date:       data.start_date,
+              end_date:         data.end_date,
+              interests:        data.interests,
+              pace:             data.pace,
+              stay_type:        data.stay_type,
+              budget_usd:       data.budget_usd,
+              group_size:       data.group_size,
+              dietary:          data.dietary,
+              personal_notes:   data.personal_notes,
+              planning_to_drive: data.planning_to_drive,
+              viability_report: viability,
+              itinerary:        itinerary,
+              status:           'planned',
+            }),
+          })
+          if (saveRes.ok) {
+            const saved = await saveRes.json()
+            savedTripId = saved.id
+            sessionStorage.setItem('tripwise_trip_id', saved.id)
+          }
+        } catch (saveErr) {
+          console.warn('Failed to save trip to database:', saveErr)
+          // Non-fatal — user can still see the trip
+        }
+      }
+
+      router.push(savedTripId ? `/trip/${savedTripId}` : '/trip/new')
     } catch (err) {
       console.error(err)
       alert('Generation failed. Check your API key and backend connection.')
@@ -140,7 +181,12 @@ function PlanContent() {
     }
   }
 
-  const steps = [{n:1,label:'Where & When'},{n:2,label:'Your Style'},{n:3,label:'Budget'},{n:4,label:'Details'}]
+  const steps = [
+    { n: 1, label: 'Where & When' },
+    { n: 2, label: 'Your Style' },
+    { n: 3, label: 'Budget' },
+    { n: 4, label: 'Details' },
+  ]
   const canProceed1 = data.destination.trim() && data.origin.trim() && data.start_date && data.end_date
   const canProceed2 = data.interests.length > 0
   const canProceed3 = data.budget_usd > 0
@@ -148,7 +194,7 @@ function PlanContent() {
   if (authLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin" style={{color:'var(--gold)'}} />
+        <Loader2 className="w-8 h-8 animate-spin" style={{ color: 'var(--gold)' }} />
       </div>
     )
   }
@@ -156,28 +202,33 @@ function PlanContent() {
   if (loading) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center px-6">
-        <div className="orb w-96 h-96 top-1/4 left-1/4" style={{background:'#c9a84c',opacity:0.08}} />
+        <div className="orb w-96 h-96 top-1/4 left-1/4" style={{ background: '#c9a84c', opacity: 0.08 }} />
         <div className="relative z-10 text-center max-w-md">
           <div className="w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-8 glow-gold relative pulse-ring"
-            style={{background:'rgba(201,168,76,0.1)',border:'1px solid rgba(201,168,76,0.3)'}}>
-            <Loader2 className="w-9 h-9 animate-spin" style={{color:'var(--gold)'}} />
+            style={{ background: 'rgba(201,168,76,0.1)', border: '1px solid rgba(201,168,76,0.3)' }}>
+            <Loader2 className="w-9 h-9 animate-spin" style={{ color: 'var(--gold)' }} />
           </div>
-          <h2 className="font-display text-3xl font-bold mb-4" style={{color:'var(--text-primary)'}}>
+          <h2 className="font-display text-3xl font-bold mb-4" style={{ color: 'var(--text-primary)' }}>
             Building your trip
           </h2>
-          <p className="mb-8 text-lg transition-all" style={{color:'var(--text-secondary)'}}>
+          <p className="mb-8 text-lg" style={{ color: 'var(--text-secondary)' }}>
             {LOADING_MESSAGES[loadingIdx]}
           </p>
           <div className="space-y-3 text-left">
-            {['Viability report, visa & weather check','AI day-by-day itinerary','Packing list & budget breakdown'].map((item,i)=>(
+            {[
+              'Viability report, visa & weather check',
+              'AI day-by-day itinerary',
+              'Packing list & budget breakdown',
+              'Saving to your account',
+            ].map((item, i) => (
               <div key={item} className="flex items-center gap-3 glass rounded-xl px-4 py-3">
                 <div className="w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0"
-                  style={{background:i===0?'rgba(45,212,160,0.15)':'rgba(201,168,76,0.1)'}}>
-                  {i===0
-                    ? <Check className="w-3 h-3" style={{color:'#2dd4a0'}} />
-                    : <Loader2 className="w-3 h-3 animate-spin" style={{color:'var(--gold)'}} />}
+                  style={{ background: i < loadingIdx ? 'rgba(45,212,160,0.15)' : 'rgba(201,168,76,0.1)' }}>
+                  {i < loadingIdx
+                    ? <Check className="w-3 h-3" style={{ color: '#2dd4a0' }} />
+                    : <Loader2 className="w-3 h-3 animate-spin" style={{ color: 'var(--gold)' }} />}
                 </div>
-                <span className="text-sm" style={{color:'var(--text-secondary)'}}>{item}</span>
+                <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>{item}</span>
               </div>
             ))}
           </div>
@@ -188,78 +239,82 @@ function PlanContent() {
 
   return (
     <div className="min-h-screen py-12 px-6">
-      <div className="orb w-72 h-72 -top-20 left-1/3" style={{background:'#c9a84c',opacity:0.07}} />
+      <div className="orb w-72 h-72 -top-20 left-1/3" style={{ background: '#c9a84c', opacity: 0.07 }} />
       <div className="max-w-2xl mx-auto relative z-10">
 
         {/* Header */}
         <div className="text-center mb-10">
-          <div className="flex items-center gap-3 justify-center mb-5 cursor-pointer" onClick={()=>router.push('/')}>
+          <div className="flex items-center gap-3 justify-center mb-5 cursor-pointer" onClick={() => router.push('/')}>
             <div className="w-8 h-8 rounded-lg flex items-center justify-center"
-              style={{background:'linear-gradient(135deg,#1c2642,#0f1628)',border:'1px solid rgba(201,168,76,0.35)'}}>
-              <Plane className="w-4 h-4" style={{color:'var(--gold)'}} />
+              style={{ background: 'linear-gradient(135deg,#1c2642,#0f1628)', border: '1px solid rgba(201,168,76,0.35)' }}>
+              <Plane className="w-4 h-4" style={{ color: 'var(--gold)' }} />
             </div>
             <span className="font-display text-xl font-bold gradient-text">TripWise</span>
           </div>
-          <h1 className="font-display text-3xl font-bold mb-2" style={{color:'var(--text-primary)'}}>Plan your perfect trip</h1>
-          <p className="text-sm" style={{color:'var(--text-secondary)'}}>Answer 4 quick questions — we handle the rest</p>
+          <h1 className="font-display text-3xl font-bold mb-2" style={{ color: 'var(--text-primary)' }}>
+            Plan your perfect trip
+          </h1>
+          <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
+            Signed in as <span style={{ color: 'var(--gold-light)' }}>{user?.displayName}</span>
+          </p>
         </div>
 
         {/* Step indicator */}
         <div className="flex items-center gap-2 mb-10">
-          {steps.map(({n,label},i)=>(
+          {steps.map(({ n, label }, i) => (
             <div key={n} className="flex items-center gap-2 flex-1">
-              <button onClick={()=>step>n&&setStep(n)} className="flex items-center gap-2 flex-shrink-0">
+              <button onClick={() => step > n && setStep(n)} className="flex items-center gap-2 flex-shrink-0">
                 <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold transition-all
-                  ${step===n?'step-active text-[#060912]':step>n?'step-done text-white':'step-inactive'}`}>
-                  {step>n?<Check className="w-3.5 h-3.5"/>:n}
+                  ${step === n ? 'step-active text-[#060912]' : step > n ? 'step-done text-white' : 'step-inactive'}`}>
+                  {step > n ? <Check className="w-3.5 h-3.5" /> : n}
                 </div>
                 <span className="text-xs hidden sm:block"
-                  style={{color:step===n?'var(--text-primary)':'var(--text-muted)'}}>{label}</span>
+                  style={{ color: step === n ? 'var(--text-primary)' : 'var(--text-muted)' }}>{label}</span>
               </button>
-              {i<steps.length-1&&(
+              {i < steps.length - 1 && (
                 <div className="flex-1 h-px mx-1 transition-all duration-500"
-                  style={{background:step>n?'var(--emerald)':'var(--border)'}} />
+                  style={{ background: step > n ? 'var(--emerald)' : 'var(--border)' }} />
               )}
             </div>
           ))}
         </div>
 
-        {/* ── STEP 1 ── */}
-        {step===1&&(
+        {/* Step 1 */}
+        {step === 1 && (
           <div className="space-y-5 animate-slide-up">
             <div className="glass rounded-2xl p-6">
               <label className="section-label block mb-4">Flying from (any city worldwide)</label>
               <div className="relative">
-                <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{color:'var(--text-muted)'}} />
-                <input className="input-field pl-9" placeholder="e.g. Mumbai, London, New York, Dubai..."
-                  value={data.origin} onChange={e=>update('origin',e.target.value)} />
+                <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: 'var(--text-muted)' }} />
+                <input className="input-field pl-9" placeholder="e.g. Mumbai, London, New York..."
+                  value={data.origin} onChange={e => update('origin', e.target.value)} />
               </div>
             </div>
 
             <div className="glass rounded-2xl p-6">
               <label className="section-label block mb-4">Destination</label>
               <div className="relative">
-                <Plane className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{color:'var(--text-muted)'}} />
+                <Plane className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: 'var(--text-muted)' }} />
                 <input className="input-field pl-9" placeholder="e.g. Tokyo, Bali, Paris..."
-                  value={data.destination} onChange={e=>update('destination',e.target.value)} />
+                  value={data.destination} onChange={e => update('destination', e.target.value)} />
               </div>
               <div className="flex flex-wrap gap-2 mt-3">
-                {['Tokyo','Bali','Bangkok','Singapore','Dubai','Paris','London','New York'].map(d=>(
-                  <button key={d} className={`tag text-xs ${data.destination===d?'active':''}`}
-                    onClick={()=>update('destination',d)}>{d}</button>
+                {['Tokyo', 'Bali', 'Bangkok', 'Singapore', 'Dubai', 'Paris', 'London', 'New York'].map(d => (
+                  <button key={d} className={`tag text-xs ${data.destination === d ? 'active' : ''}`}
+                    onClick={() => update('destination', d)}>{d}</button>
                 ))}
               </div>
             </div>
 
             <div className="grid grid-cols-2 gap-4">
-              {[{label:'Departure',key:'start_date'},{label:'Return',key:'end_date'}].map(({label,key})=>(
+              {[{ label: 'Departure', key: 'start_date' }, { label: 'Return', key: 'end_date' }].map(({ label, key }) => (
                 <div key={key} className="glass rounded-2xl p-6">
                   <label className="section-label block mb-4">{label}</label>
                   <div className="relative">
-                    <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{color:'var(--text-muted)'}} />
+                    <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: 'var(--text-muted)' }} />
                     <input type="date" className="input-field pl-9"
-                      value={(data as Record<string,unknown>)[key] as string}
-                      onChange={e=>update(key as keyof TripData,e.target.value)} />
+                      value={(data as Record<string, unknown>)[key] as string}
+                      onChange={e => update(key as keyof TripData, e.target.value)} />
                   </div>
                 </div>
               ))}
@@ -268,52 +323,52 @@ function PlanContent() {
             <div className="glass rounded-2xl p-6">
               <label className="section-label block mb-4">Group size</label>
               <div className="flex items-center gap-2 flex-wrap">
-                {[1,2,3,4,5,6].map(n=>(
-                  <button key={n} onClick={()=>update('group_size',n)}
+                {[1, 2, 3, 4, 5, 6].map(n => (
+                  <button key={n} onClick={() => update('group_size', n)}
                     className="w-11 h-11 rounded-xl font-semibold text-sm transition-all"
                     style={{
-                      background:data.group_size===n?'linear-gradient(135deg,#c9a84c,#a07830)':'var(--bg-3)',
-                      border:`1px solid ${data.group_size===n?'var(--gold)':'var(--border)'}`,
-                      color:data.group_size===n?'#060912':'var(--text-secondary)',
+                      background: data.group_size === n ? 'linear-gradient(135deg,#c9a84c,#a07830)' : 'var(--bg-3)',
+                      border: `1px solid ${data.group_size === n ? 'var(--gold)' : 'var(--border)'}`,
+                      color: data.group_size === n ? '#060912' : 'var(--text-secondary)',
                     }}>{n}</button>
                 ))}
-                <button onClick={()=>update('group_size',8)}
+                <button onClick={() => update('group_size', 8)}
                   className="px-4 h-11 rounded-xl font-semibold text-sm transition-all"
                   style={{
-                    background:data.group_size>6?'linear-gradient(135deg,#c9a84c,#a07830)':'var(--bg-3)',
-                    border:`1px solid ${data.group_size>6?'var(--gold)':'var(--border)'}`,
-                    color:data.group_size>6?'#060912':'var(--text-secondary)',
+                    background: data.group_size > 6 ? 'linear-gradient(135deg,#c9a84c,#a07830)' : 'var(--bg-3)',
+                    border: `1px solid ${data.group_size > 6 ? 'var(--gold)' : 'var(--border)'}`,
+                    color: data.group_size > 6 ? '#060912' : 'var(--text-secondary)',
                   }}>7+</button>
               </div>
             </div>
 
             <button className="btn-primary w-full flex items-center justify-center gap-2"
-              disabled={!canProceed1} onClick={()=>setStep(2)}>
+              disabled={!canProceed1} onClick={() => setStep(2)}>
               Continue <ArrowRight className="w-4 h-4" />
             </button>
           </div>
         )}
 
-        {/* ── STEP 2 ── */}
-        {step===2&&(
+        {/* Step 2 */}
+        {step === 2 && (
           <div className="space-y-5 animate-slide-up">
             <div className="glass rounded-2xl p-6">
               <label className="section-label block mb-5">Travel style (pick all that apply)</label>
               <div className="grid grid-cols-2 gap-3">
-                {INTERESTS.map(({id,label,icon:Icon})=>(
-                  <button key={id} onClick={()=>toggleArr('interests',id)}
+                {INTERESTS.map(({ id, label, icon: Icon }) => (
+                  <button key={id} onClick={() => toggleArr('interests', id)}
                     className="flex items-center gap-3 rounded-xl p-4 text-left transition-all"
                     style={{
-                      background:data.interests.includes(id)?'rgba(201,168,76,0.1)':'var(--bg-3)',
-                      border:`1px solid ${data.interests.includes(id)?'var(--gold)':'var(--border)'}`,
+                      background: data.interests.includes(id) ? 'rgba(201,168,76,0.1)' : 'var(--bg-3)',
+                      border: `1px solid ${data.interests.includes(id) ? 'var(--gold)' : 'var(--border)'}`,
                     }}>
                     <Icon className="w-4 h-4 flex-shrink-0"
-                      style={{color:data.interests.includes(id)?'var(--gold)':'var(--text-muted)'}} />
+                      style={{ color: data.interests.includes(id) ? 'var(--gold)' : 'var(--text-muted)' }} />
                     <span className="text-sm font-medium"
-                      style={{color:data.interests.includes(id)?'var(--text-primary)':'var(--text-secondary)'}}>
+                      style={{ color: data.interests.includes(id) ? 'var(--text-primary)' : 'var(--text-secondary)' }}>
                       {label}
                     </span>
-                    {data.interests.includes(id)&&<Check className="w-3.5 h-3.5 ml-auto" style={{color:'var(--gold)'}} />}
+                    {data.interests.includes(id) && <Check className="w-3.5 h-3.5 ml-auto" style={{ color: 'var(--gold)' }} />}
                   </button>
                 ))}
               </div>
@@ -322,20 +377,20 @@ function PlanContent() {
             <div className="glass rounded-2xl p-6">
               <label className="section-label block mb-5">Trip pace</label>
               <div className="space-y-3">
-                {PACE_OPTIONS.map(({id,label,desc})=>(
-                  <button key={id} onClick={()=>update('pace',id)}
+                {PACE_OPTIONS.map(({ id, label, desc }) => (
+                  <button key={id} onClick={() => update('pace', id)}
                     className="w-full flex items-center gap-4 rounded-xl p-4 text-left transition-all"
                     style={{
-                      background:data.pace===id?'rgba(201,168,76,0.1)':'var(--bg-3)',
-                      border:`1px solid ${data.pace===id?'var(--gold)':'var(--border)'}`,
+                      background: data.pace === id ? 'rgba(201,168,76,0.1)' : 'var(--bg-3)',
+                      border: `1px solid ${data.pace === id ? 'var(--gold)' : 'var(--border)'}`,
                     }}>
                     <div className="w-4 h-4 rounded-full border-2 flex items-center justify-center flex-shrink-0"
-                      style={{borderColor:data.pace===id?'var(--gold)':'var(--border)'}}>
-                      {data.pace===id&&<div className="w-2 h-2 rounded-full" style={{background:'var(--gold)'}} />}
+                      style={{ borderColor: data.pace === id ? 'var(--gold)' : 'var(--border)' }}>
+                      {data.pace === id && <div className="w-2 h-2 rounded-full" style={{ background: 'var(--gold)' }} />}
                     </div>
                     <div>
-                      <div className="text-sm font-semibold" style={{color:'var(--text-primary)'}}>{label}</div>
-                      <div className="text-xs mt-0.5" style={{color:'var(--text-muted)'}}>{desc}</div>
+                      <div className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>{label}</div>
+                      <div className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>{desc}</div>
                     </div>
                   </button>
                 ))}
@@ -345,10 +400,10 @@ function PlanContent() {
             <div className="glass rounded-2xl p-6">
               <label className="section-label block mb-5">Stay preference</label>
               <div className="flex flex-wrap gap-2">
-                {STAY_TYPES.map(type=>(
+                {STAY_TYPES.map(type => (
                   <button key={type}
-                    className={`tag ${data.stay_type===type.toLowerCase().split('/')[0].trim()?'active':''}`}
-                    onClick={()=>update('stay_type',type.toLowerCase().split('/')[0].trim())}>
+                    className={`tag ${data.stay_type === type.toLowerCase().split('/')[0].trim() ? 'active' : ''}`}
+                    onClick={() => update('stay_type', type.toLowerCase().split('/')[0].trim())}>
                     {type}
                   </button>
                 ))}
@@ -356,107 +411,103 @@ function PlanContent() {
             </div>
 
             <div className="flex gap-3">
-              <button className="btn-secondary flex-1" onClick={()=>setStep(1)}>
+              <button className="btn-secondary flex-1" onClick={() => setStep(1)}>
                 <ArrowLeft className="w-4 h-4 inline mr-2" />Back
               </button>
               <button className="btn-primary flex-1 flex items-center justify-center gap-2"
-                disabled={!canProceed2} onClick={()=>setStep(3)}>
+                disabled={!canProceed2} onClick={() => setStep(3)}>
                 Continue <ArrowRight className="w-4 h-4" />
               </button>
             </div>
           </div>
         )}
 
-        {/* ── STEP 3 ── */}
-        {step===3&&(
+        {/* Step 3 */}
+        {step === 3 && (
           <div className="space-y-5 animate-slide-up">
             <div className="glass rounded-2xl p-6">
               <label className="section-label block mb-5">Budget per person (USD)</label>
               <div className="grid grid-cols-2 gap-3 mb-5">
                 {[
-                  {label:'Budget',sublabel:'Under $500',val:400},
-                  {label:'Mid-range',sublabel:'$500 – $1,500',val:1000},
-                  {label:'Comfort',sublabel:'$1,500 – $3,000',val:2200},
-                  {label:'Luxury',sublabel:'$3,000+',val:5000},
-                ].map(({label,sublabel,val})=>(
-                  <button key={label} onClick={()=>update('budget_usd',val)}
+                  { label: 'Budget', sublabel: 'Under $500', val: 400 },
+                  { label: 'Mid-range', sublabel: '$500 – $1,500', val: 1000 },
+                  { label: 'Comfort', sublabel: '$1,500 – $3,000', val: 2200 },
+                  { label: 'Luxury', sublabel: '$3,000+', val: 5000 },
+                ].map(({ label, sublabel, val }) => (
+                  <button key={label} onClick={() => update('budget_usd', val)}
                     className="rounded-xl p-4 text-left transition-all"
                     style={{
-                      background:data.budget_usd===val?'rgba(201,168,76,0.1)':'var(--bg-3)',
-                      border:`1px solid ${data.budget_usd===val?'var(--gold)':'var(--border)'}`,
+                      background: data.budget_usd === val ? 'rgba(201,168,76,0.1)' : 'var(--bg-3)',
+                      border: `1px solid ${data.budget_usd === val ? 'var(--gold)' : 'var(--border)'}`,
                     }}>
-                    <div className="font-semibold text-sm" style={{color:'var(--text-primary)'}}>{label}</div>
-                    <div className="text-xs mt-0.5" style={{color:'var(--text-muted)'}}>{sublabel}</div>
+                    <div className="font-semibold text-sm" style={{ color: 'var(--text-primary)' }}>{label}</div>
+                    <div className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>{sublabel}</div>
                   </button>
                 ))}
               </div>
-              <label className="text-xs mb-2 block" style={{color:'var(--text-muted)'}}>Or enter exact amount (USD):</label>
+              <label className="text-xs mb-2 block" style={{ color: 'var(--text-muted)' }}>
+                Or enter exact amount (USD):
+              </label>
               <input type="number" className="input-field" placeholder="e.g. 1500"
-                value={data.budget_usd} onChange={e=>update('budget_usd',Number(e.target.value))} />
-              <div className="mt-3 p-3 rounded-xl" style={{background:'var(--bg-3)'}}>
-                <p className="text-xs" style={{color:'var(--text-muted)'}}>
-                  Includes flights, accommodation, food, transport & activities. Your itinerary will be calibrated to this budget.
-                </p>
-              </div>
+                value={data.budget_usd} onChange={e => update('budget_usd', Number(e.target.value))} />
             </div>
             <div className="flex gap-3">
-              <button className="btn-secondary flex-1" onClick={()=>setStep(2)}>
+              <button className="btn-secondary flex-1" onClick={() => setStep(2)}>
                 <ArrowLeft className="w-4 h-4 inline mr-2" />Back
               </button>
               <button className="btn-primary flex-1 flex items-center justify-center gap-2"
-                disabled={!canProceed3} onClick={()=>setStep(4)}>
+                disabled={!canProceed3} onClick={() => setStep(4)}>
                 Continue <ArrowRight className="w-4 h-4" />
               </button>
             </div>
           </div>
         )}
 
-        {/* ── STEP 4 ── */}
-        {step===4&&(
+        {/* Step 4 */}
+        {step === 4 && (
           <div className="space-y-5 animate-slide-up">
             <div className="glass rounded-2xl p-6">
               <label className="section-label block mb-5">Dietary restrictions</label>
               <div className="flex flex-wrap gap-2">
-                {DIETARY.map(d=>(
-                  <button key={d} className={`tag ${data.dietary.includes(d)?'active':''}`}
-                    onClick={()=>{
-                      if(d==='No restrictions'){update('dietary',[]);return}
-                      toggleArr('dietary',d)
+                {DIETARY.map(d => (
+                  <button key={d} className={`tag ${data.dietary.includes(d) ? 'active' : ''}`}
+                    onClick={() => {
+                      if (d === 'No restrictions') { update('dietary', []); return }
+                      toggleArr('dietary', d)
                     }}>
-                    {data.dietary.includes(d)&&d!=='No restrictions'&&<Check className="w-3 h-3" />}
+                    {data.dietary.includes(d) && d !== 'No restrictions' && <Check className="w-3 h-3" />}
                     {d}
                   </button>
                 ))}
               </div>
             </div>
 
-            {/* Personal notes */}
             <div className="glass rounded-2xl p-6">
               <label className="section-label block mb-2">Your personal notes & preferences</label>
-              <p className="text-xs mb-4" style={{color:'var(--text-muted)'}}>
-                Tell the AI anything specific — "I have a bad knee so no heavy hiking", "celebrating our anniversary", "obsessed with street food", "travelling with a toddler", etc.
+              <p className="text-xs mb-4" style={{ color: 'var(--text-muted)' }}>
+                Tell the AI anything specific — allergies, special occasions, physical limitations, obsessions, etc.
               </p>
               <div className="relative">
-                <MessageSquare className="absolute left-3 top-3.5 w-4 h-4" style={{color:'var(--text-muted)'}} />
+                <MessageSquare className="absolute left-3 top-3.5 w-4 h-4" style={{ color: 'var(--text-muted)' }} />
                 <textarea className="input-field pl-9 pt-3" rows={3}
-                  placeholder="Any personal preferences, physical limitations, special occasions, things you love or hate..."
+                  placeholder="e.g. Celebrating our anniversary, I hate museums, obsessed with local street food..."
                   value={data.personal_notes}
-                  onChange={e=>update('personal_notes',e.target.value)}
-                  style={{resize:'none'}} />
+                  onChange={e => update('personal_notes', e.target.value)}
+                  style={{ resize: 'none' }} />
               </div>
             </div>
 
             <div className="glass rounded-2xl p-6">
               <div className="flex items-center justify-between py-2">
                 <div>
-                  <p className="text-sm font-medium" style={{color:'var(--text-primary)'}}>Planning to drive?</p>
-                  <p className="text-xs" style={{color:'var(--text-muted)'}}>We'll include driving rules, IDP & parking tips</p>
+                  <p className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>Planning to drive?</p>
+                  <p className="text-xs" style={{ color: 'var(--text-muted)' }}>We'll include driving rules, IDP & parking info</p>
                 </div>
-                <button onClick={()=>update('planning_to_drive',!data.planning_to_drive)}
+                <button onClick={() => update('planning_to_drive', !data.planning_to_drive)}
                   className="w-11 h-6 rounded-full transition-all relative"
-                  style={{background:data.planning_to_drive?'var(--gold)':'var(--bg-4)'}}>
+                  style={{ background: data.planning_to_drive ? 'var(--gold)' : 'var(--bg-4)' }}>
                   <div className="w-5 h-5 bg-white rounded-full absolute top-0.5 transition-all"
-                    style={{left:data.planning_to_drive?'22px':'2px'}} />
+                    style={{ left: data.planning_to_drive ? '22px' : '2px' }} />
                 </button>
               </div>
             </div>
@@ -466,28 +517,28 @@ function PlanContent() {
               <p className="section-label mb-4">Trip summary</p>
               <div className="space-y-2 text-sm">
                 {[
-                  {label:'Route',val:`${data.origin} → ${data.destination}`},
-                  {label:'Dates',val:`${data.start_date} → ${data.end_date}`},
-                  {label:'Group',val:`${data.group_size} ${data.group_size===1?'person':'people'}`},
-                  {label:'Style',val:data.interests.join(', ')||'—'},
-                  {label:'Pace',val:data.pace},
-                  {label:'Budget',val:`$${data.budget_usd.toLocaleString()}/person`},
-                ].map(({label,val})=>(
+                  { label: 'Route', val: `${data.origin} → ${data.destination}` },
+                  { label: 'Dates', val: `${data.start_date} → ${data.end_date}` },
+                  { label: 'Group', val: `${data.group_size} ${data.group_size === 1 ? 'person' : 'people'}` },
+                  { label: 'Style', val: data.interests.join(', ') || '—' },
+                  { label: 'Pace', val: data.pace },
+                  { label: 'Budget', val: `$${data.budget_usd.toLocaleString()}/person` },
+                ].map(({ label, val }) => (
                   <div key={label} className="flex justify-between">
-                    <span style={{color:'var(--text-muted)'}}>{label}</span>
-                    <span className="font-medium text-right max-w-xs" style={{color:'var(--text-primary)'}}>{val}</span>
+                    <span style={{ color: 'var(--text-muted)' }}>{label}</span>
+                    <span className="font-medium text-right max-w-xs" style={{ color: 'var(--text-primary)' }}>{val}</span>
                   </div>
                 ))}
               </div>
             </div>
 
             <div className="flex gap-3">
-              <button className="btn-secondary flex-1" onClick={()=>setStep(3)}>
+              <button className="btn-secondary flex-1" onClick={() => setStep(3)}>
                 <ArrowLeft className="w-4 h-4 inline mr-2" />Back
               </button>
               <button className="btn-primary flex-1 flex items-center justify-center gap-2"
-                disabled={!canProceed1||data.interests.length===0} onClick={handleGenerate}>
-                <Zap className="w-4 h-4" />Generate my trip
+                disabled={!canProceed1 || data.interests.length === 0} onClick={handleGenerate}>
+                <Zap className="w-4 h-4" />Generate & save trip
               </button>
             </div>
           </div>
@@ -499,7 +550,11 @@ function PlanContent() {
 
 export default function PlanPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen flex items-center justify-center"><Loader2 className="w-8 h-8 animate-spin" style={{color:'var(--gold)'}} /></div>}>
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin" style={{ color: 'var(--gold)' }} />
+      </div>
+    }>
       <PlanContent />
     </Suspense>
   )

@@ -3,10 +3,10 @@ from pydantic import BaseModel
 import os
 import secrets
 import json
+from typing import Optional
 
 router = APIRouter()
 
-# Only initialize Supabase if both URL and KEY are properly set
 _supabase_url = os.getenv("SUPABASE_URL", "").strip()
 _supabase_key = os.getenv("SUPABASE_KEY", "").strip()
 
@@ -15,14 +15,19 @@ if _supabase_url and _supabase_key and _supabase_url.startswith("https://"):
     try:
         from supabase import create_client
         supabase = create_client(_supabase_url, _supabase_key)
-        print("[TripWise] Supabase connected")
+        print("[TripWise] Supabase connected ✓")
     except Exception as e:
-        print(f"[TripWise] Supabase init failed (trips will not be saved): {e}")
+        print(f"[TripWise] Supabase init failed: {e}")
 else:
-    print("[TripWise] Supabase not configured — running without database")
+    print("[TripWise] Supabase not configured — trips will not be persisted")
 
 
 class TripCreate(BaseModel):
+    # User identity (Firebase)
+    user_id: str
+    user_email: Optional[str] = None
+    user_name: Optional[str] = None
+    # Trip metadata
     title: str = "My Trip"
     destination: str
     origin: str
@@ -30,32 +35,53 @@ class TripCreate(BaseModel):
     end_date: str
     interests: list[str] = []
     pace: str = "balanced"
-    budget_inr: int = 100000
-    group_size: int = 2
     stay_type: str = "hotel"
+    budget_usd: int = 0
+    group_size: int = 1
     dietary: list[str] = []
-    viability_report: dict | None = None
-    itinerary: dict | None = None
-    user_id: str | None = None
+    personal_notes: str = ""
+    planning_to_drive: bool = False
+    # AI-generated data
+    viability_report: Optional[dict] = None
+    itinerary: Optional[dict] = None
+    status: str = "planned"
 
 
+# ── CREATE ────────────────────────────────────────────────────────────────────
 @router.post("/trips")
 async def create_trip(trip: TripCreate):
     invite_code = secrets.token_urlsafe(6)
 
     if not supabase:
+        # Fallback — return mock so frontend keeps working
         return {
-            "id": secrets.token_urlsafe(8),
+            "id": secrets.token_urlsafe(12),
             "invite_code": invite_code,
-            **trip.dict(),
-            "created_at": "2025-01-01T00:00:00Z"
+            **trip.model_dump(),
+            "created_at": "2026-01-01T00:00:00Z",
         }
 
     data = {
-        **trip.dict(),
-        "invite_code": invite_code,
-        "viability_report": json.dumps(trip.viability_report) if trip.viability_report else None,
-        "itinerary": json.dumps(trip.itinerary) if trip.itinerary else None,
+        "user_id":           trip.user_id,
+        "user_email":        trip.user_email,
+        "user_name":         trip.user_name,
+        "title":             trip.title,
+        "destination":       trip.destination,
+        "origin":            trip.origin,
+        "start_date":        trip.start_date,
+        "end_date":          trip.end_date,
+        "interests":         trip.interests,
+        "pace":              trip.pace,
+        "stay_type":         trip.stay_type,
+        "budget_usd":        trip.budget_usd,
+        "group_size":        trip.group_size,
+        "dietary":           trip.dietary,
+        "personal_notes":    trip.personal_notes,
+        "planning_to_drive": trip.planning_to_drive,
+        "invite_code":       invite_code,
+        "viability_report":  trip.viability_report,
+        "itinerary":         trip.itinerary,
+        "status":            trip.status,
     }
 
     try:
@@ -65,6 +91,25 @@ async def create_trip(trip: TripCreate):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+# ── HISTORY — all trips for a user ───────────────────────────────────────────
+@router.get("/trips/history/{user_id}")
+async def get_user_history(user_id: str):
+    if not supabase:
+        return []
+    try:
+        result = (
+            supabase.table("trips")
+            .select("id, title, destination, origin, start_date, end_date, status, created_at, group_size, budget_usd")
+            .eq("user_id", user_id)
+            .order("created_at", desc=True)
+            .execute()
+        )
+        return result.data
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ── GET single trip ───────────────────────────────────────────────────────────
 @router.get("/trips/{trip_id}")
 async def get_trip(trip_id: str):
     if not supabase:
@@ -76,6 +121,7 @@ async def get_trip(trip_id: str):
         raise HTTPException(status_code=404, detail="Trip not found")
 
 
+# ── UPDATE ────────────────────────────────────────────────────────────────────
 @router.put("/trips/{trip_id}")
 async def update_trip(trip_id: str, updates: dict):
     if not supabase:
@@ -87,6 +133,20 @@ async def update_trip(trip_id: str, updates: dict):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+# ── DELETE ────────────────────────────────────────────────────────────────────
+@router.delete("/trips/{trip_id}")
+async def delete_trip(trip_id: str, user_id: str):
+    """Delete a trip — only the owner can delete."""
+    if not supabase:
+        return {"success": True}
+    try:
+        supabase.table("trips").delete().eq("id", trip_id).eq("user_id", user_id).execute()
+        return {"success": True}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ── JOIN by invite code ───────────────────────────────────────────────────────
 @router.get("/trips/join/{invite_code}")
 async def get_trip_by_invite(invite_code: str):
     if not supabase:
@@ -102,14 +162,15 @@ async def get_trip_by_invite(invite_code: str):
 async def join_trip(trip_id: str, data: dict):
     if not supabase:
         return {"success": True, "trip_id": trip_id}
-    user_id = data.get("user_id")
     try:
-        result = supabase.table("trip_members").insert({
-            "trip_id": trip_id,
-            "user_id": user_id,
-            "role": "member"
+        supabase.table("trip_members").insert({
+            "trip_id":    trip_id,
+            "user_id":    data.get("user_id"),
+            "user_email": data.get("user_email"),
+            "user_name":  data.get("user_name"),
+            "role":       "member",
         }).execute()
-        return result.data[0]
+        return {"success": True}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

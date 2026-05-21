@@ -7,7 +7,7 @@ import {
   Shield, Map, Wallet, Package, Phone,
   ChevronRight, Star, Sparkles, Check,
   Hotel, Car, Bookmark, Download,
-  LogOut, User, Loader2
+  LogOut, User, Loader2, History
 } from 'lucide-react'
 import { useAuth } from '@/context/AuthContext'
 import { signInWithGoogle, signOutUser } from '@/lib/firebase'
@@ -112,7 +112,7 @@ function useTypewriter(words: string[], speed = 80, pause = 1800) {
   return display
 }
 
-function UserMenu({ user, onSignOut }: { user: { displayName: string | null; photoURL: string | null; email: string | null }; onSignOut: () => void }) {
+function UserMenu({ user, onSignOut, onHistory }: { user: { displayName: string | null; photoURL: string | null; email: string | null }; onSignOut: () => void; onHistory: () => void }) {
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
   useEffect(() => {
@@ -143,9 +143,17 @@ function UserMenu({ user, onSignOut }: { user: { displayName: string | null; pho
             <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>{user.displayName}</p>
             <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>{user.email}</p>
           </div>
-          <button onClick={onSignOut}
+          <button onClick={() => { setOpen(false); onHistory() }}
             className="w-full flex items-center gap-2 px-4 py-3 text-sm transition-all"
             style={{ color: 'var(--text-secondary)' }}
+            onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg-3)')}
+            onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
+            <History className="w-4 h-4" />
+            My trips
+          </button>
+          <button onClick={onSignOut}
+            className="w-full flex items-center gap-2 px-4 py-3 text-sm transition-all"
+            style={{ color: 'var(--text-secondary)', borderTop: '1px solid var(--border)' }}
             onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg-3)')}
             onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
             <LogOut className="w-4 h-4" />
@@ -268,7 +276,7 @@ export default function HomePage() {
               <Loader2 className="w-4 h-4 animate-spin" style={{ color: 'var(--text-muted)' }} />
             </div>
           ) : user ? (
-            <UserMenu user={user} onSignOut={handleSignOut} />
+            <UserMenu user={user} onSignOut={handleSignOut} onHistory={() => router.push('/history')} />
           ) : (
             <button onClick={() => setShowAuthModal(true)}
               className="flex items-center gap-2 btn-primary text-sm py-2.5 px-5">

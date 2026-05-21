@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import {
-  Plane, MapPin, Cloud, Shield, CreditCard, Smartphone, Plug,
+  Plane, MapPin, Cloud, Shield, CreditCard, Smartphone, Plug, History,
   Check, ChevronRight, ChevronDown, ChevronUp, Clock,
   Package, Bookmark, Phone, Edit3, Share2, Utensils, Car,
   Hotel, ArrowRight, X, Loader2, RefreshCw, Plus, Info,
@@ -265,9 +265,9 @@ export default function TripPage() {
 
   useEffect(()=>{
     try {
-      const v=sessionStorage.getItem('tripiq_viability')
-      const i=sessionStorage.getItem('tripiq_itinerary')
-      const t=sessionStorage.getItem('tripiq_tripdata')
+      const v=sessionStorage.getItem('tripwise_viability')
+      const i=sessionStorage.getItem('tripwise_itinerary')
+      const t=sessionStorage.getItem('tripwise_tripdata')
       if(v) setViability(JSON.parse(v))
       if(i) setItinerary(JSON.parse(i))
       if(t) setTripData(JSON.parse(t))
@@ -282,7 +282,7 @@ export default function TripPage() {
         body:JSON.stringify({original_itinerary:itinerary,edit_request:editPrompt})})
       const updated = await res.json()
       setItinerary(updated)
-      sessionStorage.setItem('tripiq_itinerary',JSON.stringify(updated))
+      sessionStorage.setItem('tripwise_itinerary',JSON.stringify(updated))
       setEditPrompt(''); setEditMode(false)
     } catch{alert('Edit failed.')} finally{setEditing(false)}
   }
@@ -330,6 +330,11 @@ export default function TripPage() {
               className="flex items-center gap-2 text-sm px-3 py-2 rounded-lg transition-all"
               style={{background:'var(--bg-3)',border:'1px solid var(--border)',color:'var(--text-secondary)'}}>
               <Edit3 className="w-3.5 h-3.5"/>Edit
+            </button>
+            <button onClick={()=>router.push('/history')}
+              className="flex items-center gap-2 text-sm px-3 py-2 rounded-lg transition-all"
+              style={{background:'var(--bg-3)',border:'1px solid var(--border)',color:'var(--text-secondary)'}}>
+              <History className="w-3.5 h-3.5"/>My trips
             </button>
             <button onClick={copyLink}
               className="flex items-center gap-2 text-sm px-3 py-2 rounded-lg transition-all"
