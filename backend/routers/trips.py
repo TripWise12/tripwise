@@ -1,8 +1,7 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel
 import os
 import secrets
-import json
 from typing import Optional
 
 router = APIRouter()
@@ -19,15 +18,13 @@ if _supabase_url and _supabase_key and _supabase_url.startswith("https://"):
     except Exception as e:
         print(f"[TripWise] Supabase init failed: {e}")
 else:
-    print("[TripWise] Supabase not configured — trips will not be persisted")
+    print("[TripWise] Supabase not configured")
 
 
 class TripCreate(BaseModel):
-    # User identity (Firebase)
     user_id: str
     user_email: Optional[str] = None
     user_name: Optional[str] = None
-    # Trip metadata
     title: str = "My Trip"
     destination: str
     origin: str
@@ -41,7 +38,6 @@ class TripCreate(BaseModel):
     dietary: list[str] = []
     personal_notes: str = ""
     planning_to_drive: bool = False
-    # AI-generated data
     viability_report: Optional[dict] = None
     itinerary: Optional[dict] = None
     status: str = "planned"
@@ -51,16 +47,13 @@ class TripCreate(BaseModel):
 @router.post("/trips")
 async def create_trip(trip: TripCreate):
     invite_code = secrets.token_urlsafe(6)
-
     if not supabase:
-        # Fallback — return mock so frontend keeps working
         return {
             "id": secrets.token_urlsafe(12),
             "invite_code": invite_code,
             **trip.model_dump(),
             "created_at": "2026-01-01T00:00:00Z",
         }
-
     data = {
         "user_id":           trip.user_id,
         "user_email":        trip.user_email,
@@ -83,7 +76,6 @@ async def create_trip(trip: TripCreate):
         "itinerary":         trip.itinerary,
         "status":            trip.status,
     }
-
     try:
         result = supabase.table("trips").insert(data).execute()
         return result.data[0]
@@ -91,7 +83,7 @@ async def create_trip(trip: TripCreate):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-# ── HISTORY — all trips for a user ───────────────────────────────────────────
+# ── HISTORY — MUST come before /{trip_id} to avoid route conflict ─────────────
 @router.get("/trips/history/{user_id}")
 async def get_user_history(user_id: str):
     if not supabase:
@@ -99,7 +91,7 @@ async def get_user_history(user_id: str):
     try:
         result = (
             supabase.table("trips")
-            .select("id, title, destination, origin, start_date, end_date, status, created_at, group_size, budget_usd")
+            .select("id, title, destination, origin, start_date, end_date, status, created_at, group_size, budget_usd, invite_code")
             .eq("user_id", user_id)
             .order("created_at", desc=True)
             .execute()
@@ -109,7 +101,25 @@ async def get_user_history(user_id: str):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-# ── GET single trip ───────────────────────────────────────────────────────────
+# ── JOIN by invite code — MUST come before /{trip_id} ────────────────────────
+@router.get("/trips/join/{invite_code}")
+async def get_trip_by_invite(invite_code: str):
+    if not supabase:
+        raise HTTPException(status_code=404, detail="Database not configured")
+    try:
+        result = (
+            supabase.table("trips")
+            .select("*")
+            .eq("invite_code", invite_code)
+            .single()
+            .execute()
+        )
+        return result.data
+    except Exception:
+        raise HTTPException(status_code=404, detail="Invite code not found")
+
+
+# ── GET single trip by ID ─────────────────────────────────────────────────────
 @router.get("/trips/{trip_id}")
 async def get_trip(trip_id: str):
     if not supabase:
@@ -135,8 +145,7 @@ async def update_trip(trip_id: str, updates: dict):
 
 # ── DELETE ────────────────────────────────────────────────────────────────────
 @router.delete("/trips/{trip_id}")
-async def delete_trip(trip_id: str, user_id: str):
-    """Delete a trip — only the owner can delete."""
+async def delete_trip(trip_id: str, user_id: str = Query(...)):
     if not supabase:
         return {"success": True}
     try:
@@ -146,23 +155,22 @@ async def delete_trip(trip_id: str, user_id: str):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-# ── JOIN by invite code ───────────────────────────────────────────────────────
-@router.get("/trips/join/{invite_code}")
-async def get_trip_by_invite(invite_code: str):
-    if not supabase:
-        raise HTTPException(status_code=404, detail="Database not configured")
-    try:
-        result = supabase.table("trips").select("*").eq("invite_code", invite_code).single().execute()
-        return result.data
-    except Exception:
-        raise HTTPException(status_code=404, detail="Invite code not found")
-
-
-@router.post("/trips/{trip_id}/join")
+# ── ADD MEMBER (join group trip) ──────────────────────────────────────────────
+@router.post("/trips/{trip_id}/members")
 async def join_trip(trip_id: str, data: dict):
     if not supabase:
         return {"success": True, "trip_id": trip_id}
     try:
+        # Check if already a member
+        existing = (
+            supabase.table("trip_members")
+            .select("id")
+            .eq("trip_id", trip_id)
+            .eq("user_id", data.get("user_id"))
+            .execute()
+        )
+        if existing.data:
+            return {"success": True, "already_member": True}
         supabase.table("trip_members").insert({
             "trip_id":    trip_id,
             "user_id":    data.get("user_id"),
@@ -175,6 +183,7 @@ async def join_trip(trip_id: str, data: dict):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+# ── GET MEMBERS ───────────────────────────────────────────────────────────────
 @router.get("/trips/{trip_id}/members")
 async def get_members(trip_id: str):
     if not supabase:
@@ -183,4 +192,4 @@ async def get_members(trip_id: str):
         result = supabase.table("trip_members").select("*").eq("trip_id", trip_id).execute()
         return result.data
     except Exception:
-        return []
+        return []   

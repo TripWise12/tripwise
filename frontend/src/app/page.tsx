@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import {
   Plane, MapPin, Globe, ArrowRight, Zap,
   Shield, Map, Wallet, Package, Phone,
-  ChevronRight, Star, Sparkles, Check,
+  ChevronRight, Star, Sparkles, Check, Link2,
   Hotel, Car, Bookmark, Download,
   LogOut, User, Loader2, History
 } from 'lucide-react'
@@ -143,7 +143,7 @@ function UserMenu({ user, onSignOut, onHistory }: { user: { displayName: string 
             <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>{user.displayName}</p>
             <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>{user.email}</p>
           </div>
-          <button onClick={() => { setOpen(false); onHistory() }}
+          <button onClick={() => { setOpen(false); setTimeout(onHistory, 50) }}
             className="w-full flex items-center gap-2 px-4 py-3 text-sm transition-all"
             style={{ color: 'var(--text-secondary)' }}
             onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg-3)')}
@@ -172,6 +172,9 @@ export default function HomePage() {
   const [quickOrigin, setQuickOrigin] = useState('Mumbai')
   const [signingIn, setSigningIn] = useState(false)
   const [showAuthModal, setShowAuthModal] = useState(false)
+  const [joinCode, setJoinCode] = useState('')
+  const [joining, setJoining] = useState(false)
+  const [joinError, setJoinError] = useState('')
   const typed = useTypewriter(DESTINATIONS)
 
   useScrollReveal()
@@ -191,7 +194,12 @@ export default function HomePage() {
   }
 
   async function handleSignOut() {
-    await signOutUser()
+    try {
+      await signOutUser()
+      router.push('/')
+    } catch(e) {
+      console.error('Sign out failed:', e)
+    }
   }
 
   function handlePlanTrip() {
@@ -203,6 +211,55 @@ export default function HomePage() {
     if (quickDest) p.set('dest', quickDest)
     if (quickOrigin) p.set('origin', quickOrigin)
     router.push(`/plan?${p.toString()}`)
+  }
+
+  async function handleJoinTrip() {
+    if (!joinCode.trim()) return
+    if (!user) { setShowAuthModal(true); return }
+    setJoining(true)
+    setJoinError('')
+    try {
+      const code = joinCode.trim()
+      // Support full URL or just the code
+      const extractedCode = code.includes('/trip/') 
+        ? '' // URL format — navigate directly
+        : code.includes('invite_code=')
+          ? new URL(code).searchParams.get('invite_code') || code
+          : code
+
+      // If it looks like a full URL, try to extract trip ID and navigate
+      if (code.startsWith('http') && code.includes('/trip/')) {
+        const url = new URL(code)
+        const tripId = url.pathname.split('/trip/')[1]
+        if (tripId && tripId !== 'new') {
+          // Add as member
+          await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/trips/${tripId}/members`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ user_id: user.uid, user_email: user.email, user_name: user.displayName }),
+          })
+          router.push(`/trip/${tripId}`)
+          return
+        }
+      }
+
+      // Otherwise treat as invite code
+      const apiBase = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+      const res = await fetch(`${apiBase}/api/trips/join/${extractedCode || code}`)
+      if (!res.ok) throw new Error('Trip not found')
+      const trip = await res.json()
+      // Add as member
+      await fetch(`${apiBase}/api/trips/${trip.id}/members`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id: user.uid, user_email: user.email, user_name: user.displayName }),
+      })
+      router.push(`/trip/${trip.id}`)
+    } catch(e) {
+      setJoinError('Could not find that trip. Check the code or link and try again.')
+    } finally {
+      setJoining(false)
+    }
   }
 
   return (
@@ -365,6 +422,49 @@ export default function HomePage() {
           ))}
         </div>
       </div>
+
+      {/* Join a Trip */}
+      <section className="relative z-10 py-16 px-6">
+        <div className="max-w-2xl mx-auto">
+          <div className="liquid-card rounded-2xl p-6">
+            <div className="flex items-center gap-3 mb-5">
+              <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
+                style={{background:'rgba(201,168,76,0.12)',border:'1px solid rgba(201,168,76,0.25)'}}>
+                <Link2 className="w-4 h-4" style={{color:'var(--gold)'}} />
+              </div>
+              <div>
+                <h3 className="font-semibold" style={{color:'var(--text-primary)'}}>Join a friend&apos;s trip</h3>
+                <p className="text-xs" style={{color:'var(--text-muted)'}}>Paste an invite code or full trip link to view and collaborate</p>
+              </div>
+            </div>
+            <div className="flex gap-3">
+              <input
+                className="input-field flex-1"
+                placeholder="Paste invite code (e.g. xK9mP2qR) or full trip link..."
+                value={joinCode}
+                onChange={e => { setJoinCode(e.target.value); setJoinError('') }}
+                onKeyDown={e => e.key === 'Enter' && handleJoinTrip()}
+              />
+              <button
+                className="btn-primary flex items-center gap-2 flex-shrink-0"
+                onClick={handleJoinTrip}
+                disabled={joining || !joinCode.trim()}>
+                {joining
+                  ? <><Loader2 className="w-4 h-4 animate-spin"/>Joining...</>
+                  : <><ArrowRight className="w-4 h-4"/>Join trip</>}
+              </button>
+            </div>
+            {joinError && (
+              <p className="text-xs mt-2" style={{color:'#fb7185'}}>{joinError}</p>
+            )}
+            {!user && joinCode && (
+              <p className="text-xs mt-2" style={{color:'var(--text-muted)'}}>
+                You&apos;ll need to sign in first — we&apos;ll bring you right back.
+              </p>
+            )}
+          </div>
+        </div>
+      </section>
 
       {/* Example Trip */}
       <section className="relative z-10 py-24 px-6">

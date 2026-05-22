@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useParams } from 'next/navigation'
 import { useRouter } from 'next/navigation'
 import {
   Plane, MapPin, Cloud, Shield, CreditCard, Smartphone, Plug, History,
@@ -245,6 +246,7 @@ function FlightsTab({tripData}:{tripData:Record<string,unknown>}) {
 
 export default function TripPage() {
   const router = useRouter()
+  const params = useParams<{ id: string }>()
   const { user, loading: authLoading } = useAuth()
   const [activeTab,setActiveTab] = useState('Overview')
   const [activeDay,setActiveDay] = useState(0)
@@ -264,15 +266,47 @@ export default function TripPage() {
   }, [user, authLoading, router])
 
   useEffect(()=>{
-    try {
-      const v=sessionStorage.getItem('tripwise_viability')
-      const i=sessionStorage.getItem('tripwise_itinerary')
-      const t=sessionStorage.getItem('tripwise_tripdata')
-      if(v) setViability(JSON.parse(v))
-      if(i) setItinerary(JSON.parse(i))
-      if(t) setTripData(JSON.parse(t))
-    } catch(e){console.error(e)}
-  },[])
+    async function loadTrip() {
+      // First try sessionStorage (fast path for just-generated trips)
+      try {
+        const v = sessionStorage.getItem('tripwise_viability')
+        const i = sessionStorage.getItem('tripwise_itinerary')
+        const t = sessionStorage.getItem('tripwise_tripdata')
+        const savedId = sessionStorage.getItem('tripwise_trip_id')
+        // If URL id matches sessionStorage id, use sessionStorage
+        if (v && i && (params.id === 'new' || params.id === savedId)) {
+          setViability(JSON.parse(v))
+          setItinerary(JSON.parse(i))
+          if (t) setTripData(JSON.parse(t))
+          return
+        }
+      } catch(e) { console.error(e) }
+
+      // Otherwise fetch from database (handles shared links & history)
+      if (params.id && params.id !== 'new') {
+        try {
+          const res = await fetch(`${API}/api/trips/${params.id}`)
+          if (!res.ok) throw new Error('Trip not found')
+          const full = await res.json()
+          if (full.viability_report) setViability(full.viability_report)
+          if (full.itinerary)        setItinerary(full.itinerary)
+          setTripData({
+            origin:       full.origin,
+            destination:  full.destination,
+            start_date:   full.start_date,
+            end_date:     full.end_date,
+            group_size:   full.group_size,
+            budget_usd:   full.budget_usd,
+          })
+          // Cache invite code for share tab
+          if (full.invite_code) sessionStorage.setItem('tripwise_invite_code', full.invite_code)
+        } catch(e) {
+          console.error('Failed to load trip from DB:', e)
+        }
+      }
+    }
+    loadTrip()
+  },[params.id])
 
   async function handleEdit() {
     if(!editPrompt.trim()) return
@@ -1014,7 +1048,9 @@ export default function TripPage() {
           <div className="space-y-4">
             <div className="glass rounded-2xl p-6">
               <h3 className="font-semibold mb-4" style={{color:'var(--text-primary)'}}>Invite your group</h3>
-              <div className="flex gap-3">
+              {/* Share link */}
+              <p className="section-label mb-2">Share link</p>
+              <div className="flex gap-3 mb-4">
                 <input className="input-field flex-1"
                   value={typeof window!=='undefined'?window.location.href:''}
                   readOnly />
@@ -1022,6 +1058,21 @@ export default function TripPage() {
                   {copied?'Copied!':'Copy link'}
                 </button>
               </div>
+              {/* Invite code */}
+              {(() => {
+                const code = typeof window!=='undefined'?sessionStorage.getItem('tripwise_invite_code'):null
+                return code ? (
+                  <div>
+                    <p className="section-label mb-2">Invite code</p>
+                    <div className="flex gap-3">
+                      <div className="input-field flex-1 font-mono text-center text-lg tracking-widest"
+                        style={{color:'var(--gold-light)',letterSpacing:'0.2em'}}>{code}</div>
+                      <button className="btn-secondary px-4" onClick={()=>{navigator.clipboard.writeText(code)}}>Copy code</button>
+                    </div>
+                    <p className="text-xs mt-2" style={{color:'var(--text-muted)'}}>Friends can paste this code on the home page to join your trip</p>
+                  </div>
+                ) : null
+              })()}
             </div>
 
             <div className="glass rounded-2xl p-6">
