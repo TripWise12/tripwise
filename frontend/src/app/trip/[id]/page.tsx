@@ -260,6 +260,7 @@ export default function TripPage() {
   const [checkedPacking,setCheckedPacking] = useState<string[]>([])
   const [expenses,setExpenses] = useState<{title:string;amount:number;who:string}[]>([])
   const [newExp,setNewExp] = useState({title:'',amount:'',who:''})
+  const [members,setMembers] = useState<{user_id:string;user_name:string;user_email:string;role:string;joined_at:string}[]>([])
 
   useEffect(() => {
     if (!authLoading && !user) router.replace('/')
@@ -300,6 +301,11 @@ export default function TripPage() {
           })
           // Cache invite code for share tab
           if (full.invite_code) sessionStorage.setItem('tripwise_invite_code', full.invite_code)
+          // Fetch members
+          try {
+            const mRes = await fetch(`${API}/api/trips/${params.id}/members`)
+            if (mRes.ok) { const mData = await mRes.json(); setMembers(Array.isArray(mData) ? mData : []) }
+          } catch {}
         } catch(e) {
           console.error('Failed to load trip from DB:', e)
         }
@@ -1047,7 +1053,36 @@ export default function TripPage() {
         {activeTab==='Group'&&(
           <div className="space-y-4">
             <div className="glass rounded-2xl p-6">
-              <h3 className="font-semibold mb-4" style={{color:'var(--text-primary)'}}>Invite your group</h3>
+              {/* Members list */}
+            {members.length > 0 && (
+              <div className="glass rounded-xl p-4 mb-4">
+                <p className="section-label mb-3">Trip members ({members.length})</p>
+                <div className="space-y-2">
+                  {members.map((m,i) => (
+                    <div key={i} className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0"
+                        style={{background:'rgba(201,168,76,0.15)',color:'var(--gold)',border:'1px solid rgba(201,168,76,0.2)'}}>
+                        {(m.user_name||m.user_email||'?')[0].toUpperCase()}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium truncate" style={{color:'var(--text-primary)'}}>
+                          {m.user_name || m.user_email || 'Anonymous'}
+                        </p>
+                        {m.user_email && m.user_name && (
+                          <p className="text-xs truncate" style={{color:'var(--text-muted)'}}>{m.user_email}</p>
+                        )}
+                      </div>
+                      <span className="badge flex-shrink-0" style={{
+                        background: m.role==='owner'?'rgba(201,168,76,0.15)':'rgba(74,127,212,0.12)',
+                        color: m.role==='owner'?'var(--gold-light)':'#7aa8e8'
+                      }}>{m.role}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <h3 className="font-semibold mb-4" style={{color:'var(--text-primary)'}}>Invite your group</h3>
               {/* Share link */}
               <p className="section-label mb-2">Share link</p>
               <div className="flex gap-3 mb-4">

@@ -33,10 +33,24 @@ const TOKYO_EXAMPLE = {
     { day: 2, theme: 'Temples & Culture', items: ['Senso-ji Temple at 8AM before crowds arrive', 'Tsukiji Outer Market — fresh sushi breakfast', 'teamLab Planets 3PM — book 2 weeks ahead'], cost: '$80' },
     { day: 3, theme: 'Harajuku & Shibuya', items: ['Meiji Jingu Shrine morning walk in the forest', 'Harajuku Takeshita Street & Omotesando', 'Shibuya Crossing at dusk — dinner in Nonbei Yokocho'], cost: '$75' },
   ],
-  budget: { flights: '$550', hotel: '$420', food: '$140', transport: '$45', activities: '$90', total: '$1,245' },
+  budget: { flights: '$550', hotel: '$360', food: '$120', transport: '$45', activities: '$90', total: '$1,165' },
 }
 
 const TICKER_ITEMS = ['Tokyo 🇯🇵', 'Bali 🇮🇩', 'Paris 🇫🇷', 'New York 🇺🇸', 'London 🇬🇧', 'Bangkok 🇹🇭', 'Dubai 🇦🇪', 'Singapore 🇸🇬', 'Rome 🇮🇹', 'Sydney 🇦🇺', 'Istanbul 🇹🇷', 'Barcelona 🇪🇸', 'Maldives 🇲🇻', 'Kyoto 🇯🇵', 'Amsterdam 🇳🇱']
+
+
+const DEST_IMAGES = [
+  { city: 'Tokyo',     country: 'Japan',        img: 'https://images.unsplash.com/photo-1540959733332-eab4deabeeaf?w=600&q=80', emoji: '🇯🇵' },
+  { city: 'Bali',      country: 'Indonesia',    img: 'https://images.unsplash.com/photo-1537996194471-e657df975ab4?w=600&q=80', emoji: '🇮🇩' },
+  { city: 'Paris',     country: 'France',       img: 'https://images.unsplash.com/photo-1502602898657-3e91760cbb34?w=600&q=80', emoji: '🇫🇷' },
+  { city: 'New York',  country: 'USA',          img: 'https://images.unsplash.com/photo-1485871981521-5b1fd3805eee?w=600&q=80', emoji: '🇺🇸' },
+  { city: 'Dubai',     country: 'UAE',          img: 'https://images.unsplash.com/photo-1512453979798-5ea266f8880c?w=600&q=80', emoji: '🇦🇪' },
+  { city: 'Singapore', country: 'Singapore',    img: 'https://images.unsplash.com/photo-1525625293386-3f8f99389edd?w=600&q=80', emoji: '🇸🇬' },
+  { city: 'Bangkok',   country: 'Thailand',     img: 'https://images.unsplash.com/photo-1563492065599-3520f775eeed?w=600&q=80', emoji: '🇹🇭' },
+  { city: 'London',    country: 'UK',           img: 'https://images.unsplash.com/photo-1513635269975-59663e0ac1ad?w=600&q=80', emoji: '🇬🇧' },
+  { city: 'Rome',      country: 'Italy',        img: 'https://images.unsplash.com/photo-1552832230-c0197dd311b5?w=600&q=80', emoji: '🇮🇹' },
+  { city: 'Sydney',    country: 'Australia',    img: 'https://images.unsplash.com/photo-1506973035872-a4ec16b8e8d9?w=600&q=80', emoji: '🇦🇺' },
+]
 
 function useScrollReveal() {
   useEffect(() => {
@@ -117,8 +131,8 @@ function UserMenu({ user, onSignOut, onHistory }: { user: { displayName: string 
   const ref = useRef<HTMLDivElement>(null)
   useEffect(() => {
     const handler = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false) }
-    document.addEventListener('mousedown', handler)
-    return () => document.removeEventListener('mousedown', handler)
+    document.addEventListener('mouseup', handler)
+    return () => document.removeEventListener('mouseup', handler)
   }, [])
   return (
     <div className="relative" ref={ref}>
@@ -143,7 +157,7 @@ function UserMenu({ user, onSignOut, onHistory }: { user: { displayName: string 
             <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>{user.displayName}</p>
             <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>{user.email}</p>
           </div>
-          <button onClick={() => { setOpen(false); setTimeout(onHistory, 50) }}
+          <button onClick={(e) => { e.stopPropagation(); setOpen(false); onHistory() }}
             className="w-full flex items-center gap-2 px-4 py-3 text-sm transition-all"
             style={{ color: 'var(--text-secondary)' }}
             onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg-3)')}
@@ -151,7 +165,7 @@ function UserMenu({ user, onSignOut, onHistory }: { user: { displayName: string 
             <History className="w-4 h-4" />
             My trips
           </button>
-          <button onClick={onSignOut}
+          <button onClick={(e) => { e.stopPropagation(); onSignOut() }}
             className="w-full flex items-center gap-2 px-4 py-3 text-sm transition-all"
             style={{ color: 'var(--text-secondary)', borderTop: '1px solid var(--border)' }}
             onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg-3)')}
@@ -167,7 +181,7 @@ function UserMenu({ user, onSignOut, onHistory }: { user: { displayName: string 
 
 export default function HomePage() {
   const router = useRouter()
-  const { user, loading } = useAuth()
+  const { user, loading: authLoading } = useAuth()
   const [quickDest, setQuickDest] = useState('')
   const [quickOrigin, setQuickOrigin] = useState('Mumbai')
   const [signingIn, setSigningIn] = useState(false)
@@ -327,7 +341,7 @@ export default function HomePage() {
 
         {/* Auth — right side */}
         <div>
-          {loading ? (
+          {authLoading ? (
             <div className="w-9 h-9 rounded-full flex items-center justify-center"
               style={{ background: 'var(--bg-3)', border: '1px solid var(--border)' }}>
               <Loader2 className="w-4 h-4 animate-spin" style={{ color: 'var(--text-muted)' }} />
@@ -423,6 +437,51 @@ export default function HomePage() {
         </div>
       </div>
 
+      {/* Destination Gallery */}
+      <section className="relative z-10 py-16 px-6">
+        <div className="max-w-5xl mx-auto">
+          <div className="text-center mb-10 reveal">
+            <p className="section-label mb-3">Where will you go next?</p>
+            <h2 className="font-display text-3xl font-bold" style={{ color: 'var(--text-primary)' }}>
+              Popular destinations
+            </h2>
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-3 stagger">
+            {DEST_IMAGES.map(({ city, country, img, emoji }, i) => (
+              <button key={city}
+                onClick={() => { setQuickDest(city); handlePlanTrip() }}
+                className="relative rounded-2xl overflow-hidden group reveal"
+                style={{ aspectRatio: '3/4', transitionDelay: `${i * 50}ms` }}>
+                {/* Image */}
+                <img
+                  src={img}
+                  alt={city}
+                  className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+                />
+                {/* Gradient overlay */}
+                <div className="absolute inset-0 transition-opacity duration-300"
+                  style={{ background: 'linear-gradient(to top, rgba(6,9,18,0.95) 0%, rgba(6,9,18,0.3) 50%, transparent 100%)' }} />
+                {/* Gold shimmer on hover */}
+                <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300"
+                  style={{ background: 'linear-gradient(135deg, rgba(201,168,76,0.15) 0%, transparent 60%)' }} />
+                {/* Text */}
+                <div className="absolute bottom-0 left-0 right-0 p-3">
+                  <p className="font-display font-bold text-sm" style={{ color: 'white' }}>{city}</p>
+                  <p className="text-xs" style={{ color: 'rgba(255,255,255,0.6)' }}>{emoji} {country}</p>
+                </div>
+                {/* Plan button that appears on hover */}
+                <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                  <span className="text-xs font-semibold px-3 py-1.5 rounded-full"
+                    style={{ background: 'rgba(201,168,76,0.9)', color: '#060912' }}>
+                    Plan trip →
+                  </span>
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
+      </section>
+
       {/* Join a Trip */}
       <section className="relative z-10 py-16 px-6">
         <div className="max-w-2xl mx-auto">
@@ -475,7 +534,7 @@ export default function HomePage() {
               A complete trip — built in 90 seconds
             </h2>
             <p className="mt-4 text-lg" style={{ color: 'var(--text-secondary)' }}>
-              Mumbai → Tokyo. 7 days. Everything planned.
+              Mumbai → Tokyo. 6 days. Everything planned.
             </p>
           </div>
 
@@ -487,7 +546,7 @@ export default function HomePage() {
                   <span className="badge badge-silver">AI-generated</span>
                 </div>
                 <h3 className="font-display text-3xl font-bold mb-1 gradient-text">Mumbai → Tokyo</h3>
-                <p style={{ color: 'var(--text-secondary)' }}>15–22 March 2025 · 7 days</p>
+                <p style={{ color: 'var(--text-secondary)' }}>15–21 March 2025 · 6 days</p>
               </div>
               <div className="flex items-center gap-4 flex-wrap">
                 {[

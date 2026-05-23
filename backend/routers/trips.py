@@ -189,7 +189,38 @@ async def get_members(trip_id: str):
     if not supabase:
         return []
     try:
-        result = supabase.table("trip_members").select("*").eq("trip_id", trip_id).execute()
-        return result.data
-    except Exception:
-        return []   
+        # Get the trip owner
+        trip_result = supabase.table("trips").select("user_id, user_name, user_email, created_at").eq("id", trip_id).single().execute()
+        trip = trip_result.data
+        
+        # Get joined members
+        members_result = supabase.table("trip_members").select("*").eq("trip_id", trip_id).execute()
+        members = members_result.data or []
+        
+        # Build combined list — owner first
+        owner_ids = {m["user_id"] for m in members}
+        all_members = []
+        
+        if trip:
+            all_members.append({
+                "user_id":   trip["user_id"],
+                "user_name": trip.get("user_name") or "Trip Creator",
+                "user_email": trip.get("user_email") or "",
+                "role":      "owner",
+                "joined_at": trip.get("created_at", ""),
+            })
+        
+        for m in members:
+            if m["user_id"] != (trip.get("user_id") if trip else None):
+                all_members.append({
+                    "user_id":   m["user_id"],
+                    "user_name": m.get("user_name") or "",
+                    "user_email": m.get("user_email") or "",
+                    "role":      m.get("role", "member"),
+                    "joined_at": m.get("joined_at", ""),
+                })
+        
+        return all_members
+    except Exception as e:
+        print(f"get_members error: {e}")
+        return []
