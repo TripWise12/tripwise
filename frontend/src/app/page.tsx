@@ -190,6 +190,13 @@ export default function HomePage() {
   const [joining, setJoining] = useState(false)
   const [joinError, setJoinError] = useState('')
   const typed = useTypewriter(DESTINATIONS)
+  const [bgIdx, setBgIdx] = useState(0)
+
+  // Sync background image to typewriter destination
+  useEffect(() => {
+    const idx = DEST_IMAGES.findIndex(d => typed && d.city.toLowerCase().startsWith(typed.toLowerCase().slice(0, 3)))
+    if (idx !== -1) setBgIdx(idx)
+  }, [typed])
 
   useScrollReveal()
   useMagneticButtons()
@@ -278,10 +285,27 @@ export default function HomePage() {
 
   return (
     <div className="min-h-screen relative overflow-hidden">
-      {/* Background orbs */}
-      <div className="orb w-[600px] h-[600px] -top-32 -left-20" style={{ background: '#1a3a6e', opacity: 0.18 }} />
-      <div className="orb w-96 h-96 top-1/2 right-0" style={{ background: '#c9a84c', opacity: 0.06 }} />
-      <div className="orb w-72 h-72 bottom-40 left-20" style={{ background: '#c9a84c', opacity: 0.04 }} />
+      {/* Full-screen hero background — crossfades with typewriter */}
+      <div className="fixed inset-0 z-0 pointer-events-none" style={{ height: '100vh' }}>
+        {DEST_IMAGES.map((d, i) => (
+          <div key={d.city}
+            className="absolute inset-0 transition-opacity duration-1500"
+            style={{ opacity: i === bgIdx ? 1 : 0 }}>
+            <img src={d.img} alt={d.city}
+              className="w-full h-full object-cover"
+              style={{ filter: 'brightness(0.22) saturate(0.8)' }} />
+          </div>
+        ))}
+        {/* Navy-to-transparent gradient so content below is readable */}
+        <div className="absolute inset-0"
+          style={{ background: 'linear-gradient(to bottom, rgba(6,9,18,0.3) 0%, rgba(6,9,18,0.55) 60%, rgba(6,9,18,1) 100%)' }} />
+        {/* Gold vignette edge */}
+        <div className="absolute inset-0"
+          style={{ background: 'radial-gradient(ellipse at center, transparent 40%, rgba(6,9,18,0.7) 100%)' }} />
+      </div>
+
+      {/* Subtle gold orb accent */}
+      <div className="orb w-96 h-96 top-1/3 right-10" style={{ background: '#c9a84c', opacity: 0.04, position: 'absolute', zIndex: 1 }} />
 
       {/* Auth Modal */}
       {showAuthModal && (
@@ -426,6 +450,9 @@ export default function HomePage() {
           ))}
         </div>
       </section>
+
+      {/* Solid background starts here — covers the fixed hero image below */}
+      <div className="relative z-10" style={{ background: 'var(--bg-0)' }}>
 
       {/* Ticker */}
       <div className="overflow-hidden py-4 my-2"
@@ -667,9 +694,11 @@ export default function HomePage() {
         </div>
       </section>
 
+      </div>{/* end solid background wrapper */}
+
       {/* Footer */}
-      <div className="gold-line mx-6 md:mx-12" />
-      <footer className="relative z-10 px-6 py-10">
+      <div className="gold-line mx-6 md:mx-12" style={{ position: 'relative', zIndex: 10, background: 'var(--bg-0)' }} />
+      <footer className="relative z-10 px-6 py-10" style={{ background: 'var(--bg-0)' }}>
         <div className="max-w-5xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 rounded-lg flex items-center justify-center"

@@ -341,3 +341,15 @@ body{
   to   { opacity: 1; transform: translateY(0); }
 }
 .animate-slide-up { animation: slideUp 0.45s ease forwards; }
+
+/* ── HERO BACKGROUND CROSSFADE ── */
+.transition-opacity {
+  transition-property: opacity;
+}
+.duration-1500 {
+  transition-duration: 1500ms;
+}
+
+/* Make sections above the fixed bg readable */
+.relative { position: relative; }
+section { position: relative; }
