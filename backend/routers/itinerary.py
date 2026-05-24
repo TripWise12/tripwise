@@ -109,12 +109,17 @@ Return ONLY raw JSON (no markdown fences):
           "cost_usd": 10,
           "cost_local": 1500,
           "local_currency": "JPY",
+          "opening_hours": "9:00 AM – 6:00 PM (closed Mondays)",
+          "best_time_to_visit": "Early morning to avoid crowds",
+          "common_mistakes": ["Forgetting to book tickets", "Arriving at noon when queues are longest"],
+          "important_info": "Dress code required. Remove shoes at entrance.",
           "booking_required": false,
           "booking_link": null,
           "ticket_link": null,
           "book_days_ahead": null,
           "pro_tip": "Specific insider tip for this activity",
-          "what_to_wear": "Comfortable shoes, modest clothing"
+          "what_to_wear": "Comfortable shoes, modest clothing",
+          "image_search_term": "place name city landmark"
         }}
       ],
       "day_total_usd": 80,

@@ -353,3 +353,131 @@ body{
 /* Make sections above the fixed bg readable */
 .relative { position: relative; }
 section { position: relative; }
+
+/* ── PREMIUM LOADING INDICATOR ── */
+.loading-bar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  z-index: 9999;
+  background: linear-gradient(90deg, var(--gold-dark), var(--gold-light), var(--gold-dark));
+  background-size: 200% 100%;
+  animation: loadingSlide 1.5s ease-in-out infinite;
+}
+@keyframes loadingSlide {
+  0%   { background-position: 200% 0; opacity: 1; }
+  100% { background-position: -200% 0; opacity: 1; }
+}
+
+/* Skeleton pulse */
+.skeleton {
+  background: linear-gradient(90deg, var(--bg-3) 25%, var(--bg-4) 50%, var(--bg-3) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.8s infinite linear;
+  border-radius: 8px;
+}
+
+/* ── PREMIUM PAGE TRANSITIONS ── */
+@keyframes pageIn {
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.page-enter { animation: pageIn 0.5s cubic-bezier(0.22,1,0.36,1) forwards; }
+
+/* ── CARD ENTRANCE ── */
+@keyframes cardIn {
+  from { opacity: 0; transform: translateY(24px) scale(0.97); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+.card-enter { animation: cardIn 0.45s cubic-bezier(0.22,1,0.36,1) forwards; }
+
+/* ── GOLD SHIMMER BUTTON ── */
+.btn-primary::before {
+  content: '';
+  position: absolute;
+  top: 0; left: -100%;
+  width: 60%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.15), transparent);
+  transition: left 0.5s ease;
+}
+.btn-primary:hover::before { left: 150%; }
+
+/* ── SMOOTH TAB SWITCH ── */
+.tab-content {
+  animation: tabFadeIn 0.3s ease forwards;
+}
+@keyframes tabFadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ── PROGRESS INDICATOR (top bar) ── */
+.progress-indicator {
+  position: fixed;
+  top: 0; left: 0;
+  height: 3px;
+  background: linear-gradient(90deg, var(--gold-dark), var(--gold-light));
+  border-radius: 0 2px 2px 0;
+  transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  z-index: 9999;
+  box-shadow: 0 0 10px var(--gold-glow);
+}
+
+/* ── DESTINATION CARD HOVER ── */
+.dest-card {
+  transition: transform 0.4s cubic-bezier(0.22,1,0.36,1), box-shadow 0.4s ease;
+}
+.dest-card:hover {
+  transform: translateY(-6px) scale(1.02);
+  box-shadow: 0 24px 48px rgba(0,0,0,0.5), 0 0 0 1px rgba(201,168,76,0.2);
+}
+
+/* ── MOBILE image object position ── */
+@media (max-width: 768px) {
+  .hero-bg-img {
+    object-position: center center;
+  }
+}
+
+/* ── GLASS INPUT FOCUS RING ── */
+.input-field:focus {
+  box-shadow: 0 0 0 3px var(--gold-glow), inset 0 1px 3px rgba(0,0,0,0.2);
+}
+
+/* ── NOTE PIN ANIMATION ── */
+@keyframes pinPop {
+  0%   { transform: scale(1); }
+  50%  { transform: scale(1.3) rotate(-10deg); }
+  100% { transform: scale(1); }
+}
+.pin-animate { animation: pinPop 0.3s ease; }
+
+/* ── SPLIT RESULT SLIDE IN ── */
+@keyframes slideInLeft {
+  from { opacity: 0; transform: translateX(-16px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+.split-item { animation: slideInLeft 0.35s ease forwards; }
+.split-item:nth-child(2) { animation-delay: 0.06s; }
+.split-item:nth-child(3) { animation-delay: 0.12s; }
+
+/* ── STAR RATING ── */
+.star-fill { color: var(--gold); }
+
+/* ── DEAL SCORE BAR ── */
+@keyframes scoreGrow {
+  from { width: 0; }
+}
+.score-bar { animation: scoreGrow 0.8s cubic-bezier(0.22,1,0.36,1) forwards; }
+
+/* ── HOVER LIFT ── */
+.hover-lift {
+  transition: transform 0.25s cubic-bezier(0.22,1,0.36,1), box-shadow 0.25s ease;
+}
+.hover-lift:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 12px 32px rgba(0,0,0,0.4);
+}

@@ -11,11 +11,269 @@ import {
   Zap, Star, AlertTriangle, Sun, CloudRain, Wind,
   Calendar, Music, Flag, Download, ExternalLink, Lightbulb
 } from 'lucide-react'
-
 import { useAuth } from '@/context/AuthContext'
 
 const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
 const TABS = ['Overview','Itinerary','Flights','Hotels','Packing','Budget','Group']
+
+function HotelsTab({tripData,itinerary}:{tripData:Record<string,unknown>,itinerary:any}) {
+  const [hotels,setHotels] = useState<Record<string,unknown>|null>(null)
+  const [loading,setLoading] = useState(false)
+  const [filter,setFilter] = useState<'all'|'budget'|'mid-range'|'luxury'>('all')
+  const [sortBy,setSortBy] = useState<'price'|'rating'>('rating')
+
+  async function searchHotels() {
+    setLoading(true)
+    try {
+      const res = await fetch(`${API}/api/hotels`,{method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({
+          destination: (tripData.destination||itinerary?.destination||''),
+          check_in: tripData.start_date,
+          check_out: tripData.end_date,
+          adults: tripData.group_size||2,
+          stay_type: tripData.stay_type||'any',
+          budget_per_night_usd: Math.round(Number(tripData.budget_usd||2000)/7/2),
+        })})
+      if(res.ok) setHotels(await res.json())
+    } catch(e){console.error(e)} finally{setLoading(false)}
+  }
+
+  const allResults = ((hotels?.results as any[])||[])
+  const filtered = allResults
+    .filter(h=>filter==='all'||h.category===filter)
+    .sort((a:any,b:any)=>sortBy==='price'?(a.price_per_night_usd-b.price_per_night_usd):(b.rating-a.rating))
+
+  const areaGuide = (hotels?.area_guide as any[])||[]
+  const platforms = (hotels?.comparison_platforms as any[])||[]
+
+  return (
+    <div className="space-y-4">
+      {!hotels&&!loading&&(
+        <div className="glass rounded-2xl p-10 text-center">
+          <Hotel className="w-12 h-12 mx-auto mb-4" style={{color:'var(--text-muted)'}}/>
+          <h3 className="font-display text-xl font-bold mb-2" style={{color:'var(--text-primary)'}}>Find hotels</h3>
+          <p className="text-sm mb-6" style={{color:'var(--text-secondary)'}}>
+            Compare local gems, boutique hotels, and chains — with location context
+          </p>
+          <button className="btn-primary flex items-center gap-2 mx-auto" onClick={searchHotels}>
+            <Zap className="w-4 h-4"/>Search hotels
+          </button>
+        </div>
+      )}
+
+      {loading&&(
+        <div className="space-y-4">
+          {[...Array(4)].map((_,i)=>(
+            <div key={i} className="glass rounded-2xl p-5">
+              <div className="flex gap-4">
+                <div className="w-24 h-24 skeleton rounded-xl flex-shrink-0"/>
+                <div className="flex-1 space-y-3">
+                  <div className="h-5 skeleton rounded w-1/2"/>
+                  <div className="h-4 skeleton rounded w-1/3"/>
+                  <div className="h-3 skeleton rounded w-2/3"/>
+                  <div className="flex gap-2">
+                    <div className="h-6 skeleton rounded-full w-16"/>
+                    <div className="h-6 skeleton rounded-full w-20"/>
+                    <div className="h-6 skeleton rounded-full w-14"/>
+                  </div>
+                </div>
+                <div className="w-24 space-y-2">
+                  <div className="h-8 skeleton rounded"/>
+                  <div className="h-4 skeleton rounded"/>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {hotels&&!loading&&(
+        <div className="space-y-4">
+          {/* Area guide */}
+          {areaGuide.length>0&&(
+            <div className="glass rounded-2xl p-5">
+              <p className="section-label mb-3">Area guide</p>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {areaGuide.map((area:any,i:number)=>(
+                  <div key={i} className="p-3 rounded-xl" style={{background:'var(--bg-3)'}}>
+                    <div className="flex items-center justify-between mb-1">
+                      <p className="font-semibold text-sm" style={{color:'var(--text-primary)'}}>{area.area}</p>
+                      <span className="text-xs" style={{color:'var(--gold-light)'}}>~${area.avg_price_usd}/night</span>
+                    </div>
+                    <p className="text-xs mb-1" style={{color:'var(--text-secondary)'}}>{area.vibe}</p>
+                    <p className="text-xs" style={{color:'var(--text-muted)'}}>{area.distance_to_center}</p>
+                    <div className="flex flex-wrap gap-1 mt-2">
+                      {(area.pros||[]).map((p:string,j:number)=>(
+                        <span key={j} className="text-xs px-1.5 py-0.5 rounded"
+                          style={{background:'rgba(45,212,160,0.08)',color:'#2dd4a0'}}>✓ {p}</span>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Filters + sort */}
+          <div className="flex items-center gap-3 flex-wrap">
+            <div className="flex gap-1">
+              {(['all','budget','mid-range','luxury'] as const).map(f=>(
+                <button key={f} onClick={()=>setFilter(f)}
+                  className={`day-tab text-xs ${filter===f?'active':''}`}>
+                  {f.charAt(0).toUpperCase()+f.slice(1)}
+                </button>
+              ))}
+            </div>
+            <div className="flex gap-1 ml-auto">
+              <span className="text-xs self-center" style={{color:'var(--text-muted)'}}>Sort:</span>
+              {(['rating','price'] as const).map(s=>(
+                <button key={s} onClick={()=>setSortBy(s)}
+                  className={`day-tab text-xs ${sortBy===s?'active':''}`}>
+                  {s.charAt(0).toUpperCase()+s.slice(1)}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Hotel cards */}
+          {filtered.map((h:any,i:number)=>(
+            <div key={i} className="glass feature-card rounded-2xl p-5 hover-lift">
+              <div className="flex items-start justify-between gap-4 flex-wrap">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-1 flex-wrap">
+                    {h.badge&&<span className="badge badge-gold">{h.badge}</span>}
+                    <span className="badge" style={{
+                      background:h.chain_or_local==='local'?'rgba(74,127,212,0.12)':'rgba(167,139,250,0.12)',
+                      color:h.chain_or_local==='local'?'#7aa8e8':'#a78bfa'
+                    }}>{h.chain_or_local==='local'?'Local':'Chain'}</span>
+                    {h.free_cancellation&&<span className="badge badge-green">Free cancel</span>}
+                    {h.breakfast_included&&<span className="badge badge-amber">Breakfast incl.</span>}
+                  </div>
+                  <h3 className="font-semibold text-lg" style={{color:'var(--text-primary)'}}>{h.name}</h3>
+                  <div className="flex items-center gap-3 mt-1 flex-wrap">
+                    <span className="text-xs" style={{color:'var(--text-muted)'}}>📍 {h.area}</span>
+                    <span className="text-xs" style={{color:'var(--text-muted)'}}>{h.distance_to_center}</span>
+                    {h.nearby_metro&&<span className="text-xs" style={{color:'#60a5fa'}}>🚇 {h.nearby_metro}</span>}
+                  </div>
+                  {h.distance_to_main_attraction&&(
+                    <p className="text-xs mt-1" style={{color:'var(--text-secondary)'}}>🏛 {h.distance_to_main_attraction}</p>
+                  )}
+
+                  {/* Rating */}
+                  <div className="flex items-center gap-2 mt-2">
+                    <div className="flex items-center gap-1 px-2 py-1 rounded-lg"
+                      style={{background:'rgba(201,168,76,0.1)'}}>
+                      <span className="font-bold text-sm" style={{color:'var(--gold)'}}>{h.rating}</span>
+                      <span className="text-xs" style={{color:'var(--text-muted)'}}>/ 10</span>
+                    </div>
+                    <span className="text-xs font-medium" style={{color:'var(--text-secondary)'}}>{h.rating_label}</span>
+                    {h.reviews_count&&<span className="text-xs" style={{color:'var(--text-muted)'}}>({h.reviews_count.toLocaleString()} reviews)</span>}
+                    <div className="flex gap-0.5">
+                      {[...Array(h.stars||0)].map((_,j)=>(
+                        <span key={j} className="text-xs" style={{color:'var(--gold)'}}>★</span>
+                      ))}
+                    </div>
+                  </div>
+
+                  <p className="text-sm mt-2" style={{color:'var(--text-secondary)'}}>{h.why_recommended}</p>
+
+                  {/* Amenities */}
+                  {(h.amenities||[]).length>0&&(
+                    <div className="flex flex-wrap gap-1 mt-2">
+                      {h.amenities.map((a:string,j:number)=>(
+                        <span key={j} className="text-xs px-2 py-0.5 rounded-full"
+                          style={{background:'var(--bg-4)',color:'var(--text-muted)'}}>{a}</span>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Map link */}
+                  {h.google_maps_search&&(
+                    <a href={`https://www.google.com/maps/search/${encodeURIComponent(h.google_maps_search)}`}
+                      target="_blank" rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 text-xs mt-2"
+                      style={{color:'#60a5fa'}}>
+                      <MapPin className="w-3 h-3"/>View on Google Maps
+                    </a>
+                  )}
+                </div>
+
+                {/* Price + book */}
+                <div className="text-right flex-shrink-0">
+                  <p className="font-bold text-2xl" style={{color:'var(--text-primary)'}}>
+                    ${h.price_per_night_usd}
+                  </p>
+                  <p className="text-xs" style={{color:'var(--text-muted)'}}>per night</p>
+                  <p className="text-sm font-semibold mt-1" style={{color:'var(--gold-light)'}}>
+                    ${h.total_usd} total
+                  </p>
+                  <a href={h.booking_link||'https://www.booking.com'}
+                    target="_blank" rel="noopener noreferrer"
+                    className="mt-2 inline-flex items-center gap-1 btn-primary text-sm py-2 px-4">
+                    Book <ExternalLink className="w-3 h-3"/>
+                  </a>
+                </div>
+              </div>
+
+              {/* Compare links */}
+              {(h.compare_links||[]).length>0&&(
+                <div className="mt-3 pt-3 flex flex-wrap gap-2" style={{borderTop:'1px solid var(--border)'}}>
+                  <span className="text-xs self-center" style={{color:'var(--text-muted)'}}>Compare:</span>
+                  {h.compare_links.map((link:any,j:number)=>(
+                    <a key={j} href={link.url} target="_blank" rel="noopener noreferrer"
+                      className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg hover-lift"
+                      style={{background:'var(--bg-3)',border:'1px solid var(--border)',color:'var(--text-secondary)'}}>
+                      <ExternalLink className="w-3 h-3"/>{link.platform}
+                      {link.note&&<span style={{color:'var(--text-muted)'}}>· {link.note}</span>}
+                    </a>
+                  ))}
+                </div>
+              )}
+            </div>
+          ))}
+
+          {/* Platform comparison */}
+          {platforms.length>0&&(
+            <div className="glass rounded-xl p-5">
+              <p className="section-label mb-3">Compare all hotels on</p>
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                {platforms.map((p:any,i:number)=>(
+                  <a key={i} href={p.url} target="_blank" rel="noopener noreferrer"
+                    className="flex items-center justify-between p-3 rounded-xl hover-lift"
+                    style={{background:'var(--bg-3)',border:'1px solid var(--border)'}}>
+                    <div>
+                      <p className="text-sm font-semibold" style={{color:'var(--text-primary)'}}>{p.name}</p>
+                      <p className="text-xs" style={{color:'var(--text-muted)'}}>{p.best_for}</p>
+                    </div>
+                    <ExternalLink className="w-4 h-4" style={{color:'var(--text-muted)'}}/>
+                  </a>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {(hotels.booking_tips as string[]||[]).length>0&&(
+            <div className="glass-gold rounded-xl p-4">
+              <p className="section-label mb-2">Booking tips</p>
+              {(hotels.booking_tips as string[]).map((t:string,i:number)=>(
+                <div key={i} className="flex items-start gap-2 mb-1">
+                  <div className="w-1 h-1 rounded-full mt-2 flex-shrink-0" style={{background:'var(--gold)'}}/>
+                  <p className="text-xs" style={{color:'var(--gold-light)'}}>{t}</p>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <button className="btn-secondary w-full" onClick={searchHotels}>
+            <RefreshCw className="w-4 h-4 inline mr-2"/>Refresh results
+          </button>
+        </div>
+      )}
+    </div>
+  )
+}
+
+
 
 // ── TYPES ──
 interface Slot {
@@ -174,75 +432,378 @@ function exportToExcel(itinerary:Itinerary, viability:Viability, tripData:Record
 
 function FlightsTab({tripData}:{tripData:Record<string,unknown>}) {
   const [flights,setFlights] = useState<Record<string,unknown>|null>(null)
-  const [loading,setLoading] = useState(false)
-  async function search() {
-    setLoading(true)
+  const [transport,setTransport] = useState<Record<string,unknown>|null>(null)
+  const [loadingF,setLoadingF] = useState(false)
+  const [loadingT,setLoadingT] = useState(false)
+  const [activeMode,setActiveMode] = useState<'flights'|'all'>('all')
+
+  async function searchFlights() {
+    setLoadingF(true)
     try {
       const res = await fetch(`${API}/api/flights`,{method:'POST',headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({origin:tripData.origin,destination:tripData.destination,departure_date:tripData.start_date,return_date:tripData.end_date,adults:tripData.group_size})})
-      setFlights(await res.json())
-    } catch{alert('Flight search failed.')} finally{setLoading(false)}
+        body:JSON.stringify({origin:tripData.origin,destination:tripData.destination,
+          departure_date:tripData.start_date,return_date:tripData.end_date,adults:tripData.group_size})})
+      if(res.ok) setFlights(await res.json())
+    } catch(e){console.error(e)} finally{setLoadingF(false)}
   }
-  if(!flights) return (
-    <div className="glass rounded-2xl p-12 text-center">
-      <Plane className="w-12 h-12 mx-auto mb-4" style={{color:'var(--text-muted)'}} />
-      <h3 className="font-display text-xl font-bold mb-2" style={{color:'var(--text-primary)'}}>Find flights</h3>
-      <p className="mb-6 text-sm" style={{color:'var(--text-secondary)'}}>Search AI-powered flight options for your route</p>
-      <button className="btn-primary flex items-center gap-2 mx-auto" onClick={search} disabled={loading}>
-        {loading?<Loader2 className="w-4 h-4 animate-spin"/>:<Zap className="w-4 h-4"/>}
-        {loading?'Searching...':'Search flights'}
-      </button>
-    </div>
-  )
-  const results = (flights.results as Record<string,unknown>[])||[]
-  const fd = flights.flexible_dates as Record<string,unknown>|undefined
+
+  async function searchTransport() {
+    setLoadingT(true)
+    try {
+      const res = await fetch(`${API}/api/transport`,{method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({origin:tripData.origin,destination:tripData.destination,
+          departure_date:tripData.start_date,return_date:tripData.end_date,adults:tripData.group_size})})
+      if(res.ok) setTransport(await res.json())
+    } catch(e){console.error(e)} finally{setLoadingT(false)}
+  }
+
+  const flightResults = (flights?.results as Record<string,unknown>[])||[]
+  const transportOptions = (transport?.options as Record<string,unknown>[])||[]
+  const localT = transport?.local_transport_at_destination as Record<string,unknown>|undefined
+
   return (
     <div className="space-y-4">
-      {fd&&<div className="glass rounded-xl p-4" style={{borderColor:'rgba(45,212,160,0.3)'}}>
-        <div className="flex items-center gap-2"><span className="badge badge-green">Tip</span>
-        <p className="text-sm" style={{color:'var(--text-secondary)'}}>{String(fd.note||'')}</p></div>
-      </div>}
-      {results.map((f,i)=>(
-        <div key={i} className="glass feature-card rounded-2xl p-5">
-          <div className="flex items-start justify-between gap-4 flex-wrap">
-            <div className="flex-1">
-              <div className="flex items-center gap-2 mb-2">
-                {f.badge&&<span className="badge badge-gold">{String(f.badge)}</span>}
-                <span className="font-semibold" style={{color:'var(--text-primary)'}}>{String(f.airline)}</span>
-                <span className="text-xs font-mono" style={{color:'var(--text-muted)'}}>{String(f.flight_number)}</span>
-              </div>
-              <div className="flex items-center gap-4">
-                <p className="font-bold text-lg" style={{color:'var(--text-primary)'}}>{String(f.departure_time)}</p>
-                <div className="flex-1 flex items-center gap-2">
-                  <div className="flex-1 h-px" style={{background:'var(--border)'}} />
-                  <div className="text-center">
-                    <p className="text-xs" style={{color:'var(--text-muted)'}}>{String(f.duration)}</p>
-                    <p className="text-xs" style={{color:f.stops===0?'#2dd4a0':'var(--text-muted)'}}>
-                      {f.stops===0?'Direct':`${f.stops} stop`}
-                    </p>
+      {/* Mode tabs */}
+      <div className="flex gap-2">
+        {(['all','flights'] as const).map(mode=>(
+          <button key={mode} onClick={()=>setActiveMode(mode)}
+            className={`day-tab ${activeMode===mode?'active':''}`}>
+            {mode==='all'?'🚌 All transport':'✈️ Flights only'}
+          </button>
+        ))}
+      </div>
+
+      {/* ALL TRANSPORT */}
+      {activeMode==='all'&&(
+        <div className="space-y-4">
+          {!transport&&!loadingT&&(
+            <div className="glass rounded-2xl p-10 text-center">
+              <div className="text-4xl mb-3">🗺️</div>
+              <h3 className="font-display text-xl font-bold mb-2" style={{color:'var(--text-primary)'}}>
+                Compare all ways to get there
+              </h3>
+              <p className="text-sm mb-6" style={{color:'var(--text-secondary)'}}>
+                Flights, trains, buses, road trip — with local transport guide at destination
+              </p>
+              <button className="btn-primary flex items-center gap-2 mx-auto" onClick={searchTransport}>
+                <Zap className="w-4 h-4"/>Find all options
+              </button>
+            </div>
+          )}
+
+          {loadingT&&(
+            <div className="space-y-3">
+              {[...Array(4)].map((_,i)=>(
+                <div key={i} className="glass rounded-2xl p-5">
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 skeleton rounded-xl"/>
+                    <div className="flex-1 space-y-2">
+                      <div className="h-4 skeleton rounded w-1/3"/>
+                      <div className="h-3 skeleton rounded w-1/2"/>
+                    </div>
+                    <div className="w-20 h-8 skeleton rounded"/>
                   </div>
-                  <div className="flex-1 h-px" style={{background:'var(--border)'}} />
                 </div>
-                <p className="font-bold text-lg" style={{color:'var(--text-primary)'}}>{String(f.arrival_time)}</p>
-              </div>
-              <div className="flex gap-4 mt-2">
-                <span className="text-xs" style={{color:'var(--text-muted)'}}>🧳 {String(f.baggage_kg)}kg</span>
-                <span className="text-xs" style={{color:'var(--text-muted)'}}>⏱ {String(f.on_time_percent)}% on-time</span>
-              </div>
+              ))}
             </div>
-            <div className="text-right">
-              <p className="font-bold text-2xl" style={{color:'var(--text-primary)'}}>${Number(f.price_inr||f.price_usd||0).toLocaleString()}</p>
-              <p className="text-xs" style={{color:'var(--text-muted)'}}>per person</p>
-              <a href="https://www.google.com/flights" target="_blank" rel="noopener noreferrer"
-                className="mt-2 inline-block btn-primary text-sm py-2 px-4">Book →</a>
+          )}
+
+          {transport&&!loadingT&&(
+            <div className="space-y-4">
+              {transport.recommended_reason&&(
+                <div className="glass-gold rounded-xl p-4">
+                  <div className="flex items-center gap-2">
+                    <Info className="w-4 h-4" style={{color:'var(--gold)'}}/>
+                    <p className="text-sm" style={{color:'var(--gold-light)'}}>{transport.recommended_reason as string}</p>
+                  </div>
+                </div>
+              )}
+
+              {transportOptions.filter((o:any)=>o.available!==false).map((opt:any,i:number)=>(
+                <div key={i} className="glass feature-card rounded-2xl p-5">
+                  <div className="flex items-start justify-between gap-4 flex-wrap">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className="text-2xl">{opt.mode_icon}</span>
+                        <span className="font-semibold" style={{color:'var(--text-primary)'}}>{opt.title}</span>
+                        {opt.badge&&<span className="badge badge-gold">{opt.badge}</span>}
+                      </div>
+                      <div className="flex items-center gap-4 flex-wrap mb-3">
+                        {opt.duration&&<span className="text-sm" style={{color:'var(--text-secondary)'}}>⏱ {opt.duration}</span>}
+                        {opt.price_from_usd&&<span className="text-sm font-semibold" style={{color:'var(--gold-light)'}}>From ${opt.price_from_usd}</span>}
+                        {opt.price_to_usd&&<span className="text-sm" style={{color:'var(--text-muted)'}}>– ${opt.price_to_usd}</span>}
+                      </div>
+                      {(opt.pros||[]).length>0&&(
+                        <div className="flex flex-wrap gap-1 mb-2">
+                          {opt.pros.map((p:string,j:number)=>(
+                            <span key={j} className="text-xs px-2 py-0.5 rounded-full"
+                              style={{background:'rgba(45,212,160,0.1)',color:'#2dd4a0'}}>✓ {p}</span>
+                          ))}
+                        </div>
+                      )}
+                      {(opt.cons||[]).length>0&&(
+                        <div className="flex flex-wrap gap-1">
+                          {opt.cons.map((c:string,j:number)=>(
+                            <span key={j} className="text-xs px-2 py-0.5 rounded-full"
+                              style={{background:'rgba(244,63,94,0.08)',color:'#fb7185'}}>✗ {c}</span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                    {/* Comfort + eco scores */}
+                    <div className="text-right flex-shrink-0 space-y-1">
+                      {opt.comfort&&(
+                        <div className="flex items-center gap-1 justify-end">
+                          {[...Array(5)].map((_,k)=>(
+                            <div key={k} className="w-2 h-2 rounded-full"
+                              style={{background:k<opt.comfort?'var(--gold)':'var(--bg-4)'}}/>
+                          ))}
+                          <span className="text-xs ml-1" style={{color:'var(--text-muted)'}}>comfort</span>
+                        </div>
+                      )}
+                      {opt.eco_score&&(
+                        <div className="flex items-center gap-1 justify-end">
+                          {[...Array(5)].map((_,k)=>(
+                            <div key={k} className="w-2 h-2 rounded-full"
+                              style={{background:k<opt.eco_score?'#2dd4a0':'var(--bg-4)'}}/>
+                          ))}
+                          <span className="text-xs ml-1" style={{color:'var(--text-muted)'}}>eco</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Booking platforms */}
+                  {(opt.book_platforms||[]).length>0&&(
+                    <div className="mt-3 pt-3 flex flex-wrap gap-2" style={{borderTop:'1px solid var(--border)'}}>
+                      {opt.book_platforms.map((p:any,j:number)=>(
+                        <a key={j} href={p.url} target="_blank" rel="noopener noreferrer"
+                          className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg transition-all hover-lift"
+                          style={{background:'rgba(201,168,76,0.1)',border:'1px solid rgba(201,168,76,0.2)',color:'var(--gold-light)'}}>
+                          <ExternalLink className="w-3 h-3"/>{p.name}
+                          {p.note&&<span style={{color:'var(--text-muted)'}}>· {p.note}</span>}
+                        </a>
+                      ))}
+                    </div>
+                  )}
+
+                  {(opt.tips||[]).length>0&&(
+                    <div className="mt-2">
+                      {opt.tips.map((t:string,j:number)=>(
+                        <div key={j} className="flex items-start gap-2 mt-1">
+                          <Star className="w-3 h-3 mt-0.5 flex-shrink-0" style={{color:'var(--gold)'}}/>
+                          <p className="text-xs" style={{color:'var(--text-muted)'}}>{t}</p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ))}
+
+              {/* Unavailable modes */}
+              {transportOptions.filter((o:any)=>o.available===false).map((opt:any,i:number)=>(
+                <div key={i} className="glass rounded-xl p-4 opacity-50">
+                  <div className="flex items-center gap-3">
+                    <span className="text-xl">{opt.mode_icon}</span>
+                    <span className="text-sm" style={{color:'var(--text-secondary)'}}>{opt.title}</span>
+                    <span className="text-xs ml-auto" style={{color:'var(--text-muted)'}}>{opt.reason_unavailable}</span>
+                  </div>
+                </div>
+              ))}
+
+              {/* Local transport at destination */}
+              {localT&&(
+                <div className="glass rounded-2xl p-5" style={{border:'1px solid rgba(201,168,76,0.2)'}}>
+                  <h4 className="font-semibold mb-3" style={{color:'var(--text-primary)'}}>
+                    🚇 Getting around {localT.city as string}
+                  </h4>
+                  <div className="space-y-3">
+                    <div className="p-3 rounded-xl" style={{background:'var(--bg-3)'}}>
+                      <p className="font-medium text-sm" style={{color:'var(--text-primary)'}}>{localT.primary_mode as string}</p>
+                      <p className="text-xs mt-1" style={{color:'var(--text-secondary)'}}>{localT.why as string}</p>
+                      {localT.pass_recommendation&&(
+                        <p className="text-xs mt-1" style={{color:'var(--gold-light)'}}>
+                          💳 {localT.pass_recommendation as string} — ${localT.pass_cost_usd} · {localT.pass_where_to_buy as string}
+                        </p>
+                      )}
+                    </div>
+
+                    {/* Key routes */}
+                    {((localT.key_routes as any[])||[]).map((r:any,i:number)=>(
+                      <div key={i} className="p-3 rounded-xl" style={{background:'var(--bg-3)'}}>
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="text-sm font-medium" style={{color:'var(--text-primary)'}}>
+                            {r.from} → {r.to}
+                          </span>
+                          <span className="text-xs font-semibold" style={{color:'var(--gold-light)'}}>
+                            ${r.cost_usd} · {r.duration_mins}min
+                          </span>
+                        </div>
+                        {r.line&&<p className="text-xs" style={{color:'var(--text-muted)'}}>{r.line}{r.direction?` → ${r.direction}`:''}</p>}
+                        {r.stations&&<p className="text-xs mt-0.5" style={{color:'var(--text-secondary)'}}>{r.stations}</p>}
+                        {r.tip&&(
+                          <div className="flex items-start gap-1.5 mt-1">
+                            <Star className="w-3 h-3 mt-0.5 flex-shrink-0" style={{color:'var(--gold)'}}/>
+                            <p className="text-xs" style={{color:'var(--gold-light)'}}>{r.tip}</p>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+
+                    {/* Apps */}
+                    {((localT.apps as any[])||[]).length>0&&(
+                      <div>
+                        <p className="section-label mb-2">Recommended apps</p>
+                        <div className="flex flex-wrap gap-2">
+                          {(localT.apps as any[]).map((app:any,j:number)=>(
+                            <a key={j} href={app.url} target="_blank" rel="noopener noreferrer"
+                              className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg hover-lift"
+                              style={{background:'rgba(74,127,212,0.1)',border:'1px solid rgba(74,127,212,0.2)',color:'#7aa8e8'}}>
+                              <ExternalLink className="w-3 h-3"/>{app.name}
+                            </a>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {localT.avoid&&(
+                      <div className="flex items-start gap-2 p-2 rounded-lg"
+                        style={{background:'rgba(244,63,94,0.06)',border:'1px solid rgba(244,63,94,0.15)'}}>
+                        <AlertTriangle className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" style={{color:'#fb7185'}}/>
+                        <p className="text-xs" style={{color:'#fb7185'}}>{localT.avoid as string}</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
-          </div>
+          )}
         </div>
-      ))}
-      <button className="btn-secondary w-full" onClick={search}><RefreshCw className="w-4 h-4 inline mr-2"/>Refresh</button>
+      )}
+
+      {/* FLIGHTS ONLY */}
+      {activeMode==='flights'&&(
+        <div className="space-y-4">
+          {!flights&&!loadingF&&(
+            <div className="glass rounded-2xl p-10 text-center">
+              <Plane className="w-12 h-12 mx-auto mb-4" style={{color:'var(--text-muted)'}}/>
+              <h3 className="font-display text-xl font-bold mb-2" style={{color:'var(--text-primary)'}}>Search flights</h3>
+              <p className="text-sm mb-6" style={{color:'var(--text-secondary)'}}>
+                Compare airlines, prices, and booking platforms
+              </p>
+              <button className="btn-primary flex items-center gap-2 mx-auto" onClick={searchFlights} disabled={loadingF}>
+                {loadingF?<Loader2 className="w-4 h-4 animate-spin"/>:<Zap className="w-4 h-4"/>}
+                {loadingF?'Searching...':'Search flights'}
+              </button>
+            </div>
+          )}
+
+          {loadingF&&(
+            <div className="space-y-3">
+              {[...Array(3)].map((_,i)=>(
+                <div key={i} className="glass rounded-2xl p-5 space-y-3">
+                  <div className="flex justify-between">
+                    <div className="h-5 skeleton rounded w-1/4"/>
+                    <div className="h-5 skeleton rounded w-1/5"/>
+                  </div>
+                  <div className="h-4 skeleton rounded w-1/2"/>
+                  <div className="h-3 skeleton rounded w-1/3"/>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {flights&&!loadingF&&(
+            <div className="space-y-4">
+              {(flights.flexible_dates as any)?.note&&(
+                <div className="glass rounded-xl p-4" style={{borderColor:'rgba(45,212,160,0.3)'}}>
+                  <div className="flex items-center gap-2">
+                    <span className="badge badge-green">Save</span>
+                    <p className="text-sm" style={{color:'var(--text-secondary)'}}>{(flights.flexible_dates as any).note}</p>
+                    {(flights.flexible_dates as any).savings_usd&&(
+                      <span className="ml-auto text-sm font-bold" style={{color:'#2dd4a0'}}>
+                        ~${(flights.flexible_dates as any).savings_usd} saved
+                      </span>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {flightResults.map((f:any,i:number)=>(
+                <div key={i} className="glass feature-card rounded-2xl p-5 hover-lift">
+                  <div className="flex items-start justify-between gap-4 flex-wrap">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-2">
+                        {f.badge&&<span className="badge badge-gold">{f.badge}</span>}
+                        <span className="font-semibold" style={{color:'var(--text-primary)'}}>{f.airline}</span>
+                        <span className="text-xs font-mono" style={{color:'var(--text-muted)'}}>{f.flight_number}</span>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <span className="font-bold text-lg" style={{color:'var(--text-primary)'}}>{f.departure_time}</span>
+                        <div className="flex-1 flex items-center gap-2">
+                          <div className="flex-1 h-px" style={{background:'var(--border)'}}/>
+                          <div className="text-center">
+                            <p className="text-xs" style={{color:'var(--text-muted)'}}>{f.duration}</p>
+                            <p className="text-xs" style={{color:f.stops===0?'#2dd4a0':'var(--text-muted)'}}>
+                              {f.stops===0?'Direct':`${f.stops} stop`}
+                            </p>
+                          </div>
+                          <div className="flex-1 h-px" style={{background:'var(--border)'}}/>
+                        </div>
+                        <span className="font-bold text-lg" style={{color:'var(--text-primary)'}}>{f.arrival_time}</span>
+                      </div>
+                      <div className="flex gap-4 mt-2 flex-wrap">
+                        <span className="text-xs" style={{color:'var(--text-muted)'}}>🧳 {f.baggage_kg}kg</span>
+                        <span className="text-xs" style={{color:'var(--text-muted)'}}>⏱ {f.on_time_percent}% on-time</span>
+                        {(f.pros||[]).map((p:string,j:number)=>(
+                          <span key={j} className="text-xs" style={{color:'#2dd4a0'}}>✓ {p}</span>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="text-right flex-shrink-0">
+                      <p className="font-bold text-2xl" style={{color:'var(--text-primary)'}}>${f.price_usd}</p>
+                      <p className="text-xs" style={{color:'var(--text-muted)'}}>per person</p>
+                      <a href={f.skyscanner_url||'https://www.skyscanner.com'}
+                        target="_blank" rel="noopener noreferrer"
+                        className="mt-2 inline-flex items-center gap-1.5 btn-primary text-sm py-2 px-4">
+                        Book <ExternalLink className="w-3 h-3"/>
+                      </a>
+                    </div>
+                  </div>
+                </div>
+              ))}
+
+              {/* Booking platforms comparison */}
+              {((flights.booking_platforms as any[])||[]).length>0&&(
+                <div className="glass rounded-xl p-5">
+                  <p className="section-label mb-3">Compare on all platforms</p>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    {(flights.booking_platforms as any[]).map((p:any,i:number)=>(
+                      <a key={i} href={p.url} target="_blank" rel="noopener noreferrer"
+                        className="flex items-center justify-between p-3 rounded-xl hover-lift"
+                        style={{background:'var(--bg-3)',border:'1px solid var(--border)'}}>
+                        <div>
+                          <p className="text-sm font-semibold" style={{color:'var(--text-primary)'}}>{p.name}</p>
+                          <p className="text-xs" style={{color:'var(--text-muted)'}}>{p.why}</p>
+                        </div>
+                        <ExternalLink className="w-4 h-4" style={{color:'var(--text-muted)'}}/>
+                      </a>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <button className="btn-secondary w-full" onClick={searchFlights}>
+                <RefreshCw className="w-4 h-4 inline mr-2"/>Refresh results
+              </button>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   )
 }
+
 
 export default function TripPage() {
   const router = useRouter()
@@ -261,6 +822,11 @@ export default function TripPage() {
   const [expenses,setExpenses] = useState<{title:string;amount:number;who:string}[]>([])
   const [newExp,setNewExp] = useState({title:'',amount:'',who:''})
   const [members,setMembers] = useState<{user_id:string;user_name:string;user_email:string;role:string;joined_at:string}[]>([])
+  const [notes,setNotes] = useState<{id:string;user_id:string;user_name:string;content:string;pinned:boolean;created_at:string}[]>([])
+  const [newNote,setNewNote] = useState('')
+  const [addingNote,setAddingNote] = useState(false)
+  const [splits,setSplits] = useState<{from:string;to:string;amount:number}[]>([])
+  const [removingMember,setRemovingMember] = useState<string|null>(null)
 
   useEffect(() => {
     if (!authLoading && !user) router.replace('/')
@@ -305,6 +871,11 @@ export default function TripPage() {
           try {
             const mRes = await fetch(`${API}/api/trips/${params.id}/members`)
             if (mRes.ok) { const mData = await mRes.json(); setMembers(Array.isArray(mData) ? mData : []) }
+          } catch {}
+          // Fetch notes
+          try {
+            const nRes = await fetch(`${API}/api/trips/${params.id}/notes`)
+            if (nRes.ok) { const nData = await nRes.json(); setNotes(Array.isArray(nData) ? nData : []) }
           } catch {}
         } catch(e) {
           console.error('Failed to load trip from DB:', e)
@@ -421,7 +992,7 @@ export default function TripPage() {
 
         {/* ── OVERVIEW ── */}
         {activeTab==='Overview'&&(
-          <div className="space-y-4">
+          <div className="tab-content space-y-4">
             <TipsBox tips={viability.page_tips?.overview} />
 
             {/* Hero */}
@@ -652,7 +1223,7 @@ export default function TripPage() {
 
         {/* ── ITINERARY ── */}
         {activeTab==='Itinerary'&&(
-          <div>
+          <div className="tab-content">
             <TipsBox tips={viability.page_tips?.itinerary} />
             <div className="flex gap-2 overflow-x-auto pb-4 mb-6">
               {days.map((day,i)=>(
@@ -807,90 +1378,12 @@ export default function TripPage() {
 
         {/* ── HOTELS ── */}
         {activeTab==='Hotels'&&(
-          <div className="space-y-4">
-            <div className="glass rounded-2xl p-6">
-              <div className="flex items-start gap-3 mb-4">
-                <Hotel className="w-5 h-5 mt-0.5" style={{color:'var(--gold)'}} />
-                <div>
-                  <h3 className="font-semibold" style={{color:'var(--text-primary)'}}>
-                    Recommended area: {itinerary.accommodation?.recommended_area}
-                  </h3>
-                  <p className="text-sm mt-1" style={{color:'var(--text-secondary)'}}>{itinerary.accommodation?.reason}</p>
-                </div>
-              </div>
-            </div>
-            {(itinerary.accommodation?.options||[]).map((opt,i)=>(
-              <div key={i} className="glass feature-card rounded-2xl p-5">
-                <div className="flex items-start justify-between gap-4">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-1 flex-wrap">
-                      <span className="badge badge-purple">{opt.type}</span>
-                      {opt.rating&&<span className="text-xs" style={{color:'#fbbf24'}}>★ {opt.rating}</span>}
-                    </div>
-                    <h3 className="font-semibold" style={{color:'var(--text-primary)'}}>{opt.name}</h3>
-                    <p className="text-xs mt-0.5" style={{color:'var(--text-muted)'}}>{opt.area}</p>
-                    <p className="text-sm mt-2" style={{color:'var(--text-secondary)'}}>{opt.why}</p>
-                    {(opt.amenities||[]).length>0&&(
-                      <div className="flex flex-wrap gap-1 mt-3">
-                        {opt.amenities.map((a,j)=>(
-                          <span key={j} className="text-xs px-2 py-0.5 rounded-full"
-                            style={{background:'var(--bg-3)',color:'var(--text-muted)'}}>{a}</span>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                  <div className="text-right flex-shrink-0">
-                    <p className="font-bold text-lg" style={{color:'var(--text-primary)'}}>
-                      ${(opt.price_per_night_usd||0)}/night
-                    </p>
-                    <p className="text-sm font-medium mt-1" style={{color:'var(--gold-light)'}}>
-                      ${(opt.total_usd||0)} total
-                    </p>
-                  </div>
-                </div>
-                <a href={opt.booking_link||'https://www.booking.com'} target="_blank" rel="noopener noreferrer"
-                  className="mt-4 inline-flex items-center gap-2 btn-secondary text-sm py-2.5 px-4">
-                  Book on Booking.com <ArrowRight className="w-3.5 h-3.5"/>
-                </a>
-              </div>
-            ))}
-            {itinerary.local_transport&&(
-              <div className="glass rounded-2xl p-5">
-                <h4 className="font-semibold mb-3" style={{color:'var(--text-primary)'}}>Getting around</h4>
-                <div className="flex items-start gap-3">
-                  <Car className="w-4 h-4 mt-0.5" style={{color:'var(--gold)'}} />
-                  <div>
-                    <p className="font-medium text-sm" style={{color:'var(--text-primary)'}}>{itinerary.local_transport.primary_recommendation}</p>
-                    <p className="text-xs mt-1" style={{color:'var(--text-secondary)'}}>{itinerary.local_transport.reason}</p>
-                    <p className="text-xs mt-1" style={{color:'var(--text-muted)'}}>How to get: {itinerary.local_transport.how_to_get}</p>
-                    <p className="text-sm font-medium mt-2" style={{color:'var(--gold-light)'}}>
-                      ~${itinerary.local_transport.cost_for_trip_usd} for the trip · ${itinerary.local_transport.daily_cost_usd}/day
-                    </p>
-                    {itinerary.local_transport.official_link&&(
-                      <a href={itinerary.local_transport.official_link} target="_blank" rel="noopener noreferrer"
-                        className="text-xs mt-1 flex items-center gap-1" style={{color:'var(--gold-light)'}}>
-                        <ExternalLink className="w-3 h-3"/>Official site
-                      </a>
-                    )}
-                    {itinerary.local_transport.airport_transfer&&(
-                      <div className="mt-3 p-3 rounded-xl" style={{background:'var(--bg-3)'}}>
-                        <p className="text-xs font-medium mb-1" style={{color:'var(--text-primary)'}}>Airport transfer</p>
-                        <p className="text-xs" style={{color:'var(--text-secondary)'}}>
-                          {itinerary.local_transport.airport_transfer.recommendation} · ${itinerary.local_transport.airport_transfer.cost_usd} · ~{itinerary.local_transport.airport_transfer.duration_mins} min
-                        </p>
-                        <p className="text-xs" style={{color:'var(--text-muted)'}}>{itinerary.local_transport.airport_transfer.from}</p>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
+          <HotelsTab tripData={tripData} itinerary={itinerary} />
         )}
 
         {/* ── PACKING ── */}
         {activeTab==='Packing'&&(
-          <div className="space-y-4">
+          <div className="tab-content space-y-4">
             <TipsBox tips={viability.page_tips?.packing} />
             <div className="glass rounded-2xl p-5">
               <div className="flex items-center justify-between mb-3">
@@ -944,7 +1437,7 @@ export default function TripPage() {
 
         {/* ── BUDGET ── */}
         {activeTab==='Budget'&&(
-          <div className="space-y-4">
+          <div className="tab-content space-y-4">
             <TipsBox tips={viability.page_tips?.budget} />
             <div className="glass rounded-2xl p-6">
               <div className="flex items-center justify-between mb-6">
@@ -1051,76 +1544,121 @@ export default function TripPage() {
 
         {/* ── GROUP ── */}
         {activeTab==='Group'&&(
-          <div className="space-y-4">
-            <div className="glass rounded-2xl p-6">
-              {/* Members list */}
-            {members.length > 0 && (
-              <div className="glass rounded-xl p-4 mb-4">
-                <p className="section-label mb-3">Trip members ({members.length})</p>
+          <div className="tab-content space-y-5">
+
+            {/* MEMBERS CARD */}
+            <div className="glass rounded-2xl p-5">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="font-semibold" style={{color:'var(--text-primary)'}}>Trip members ({members.length})</h3>
+                {user && members.find(m=>m.user_id===user.uid&&m.role==='owner') && (
+                  <span className="badge badge-gold">You are the owner</span>
+                )}
+              </div>
+              {members.length===0?(
+                <p className="text-sm" style={{color:'var(--text-muted)'}}>No members yet. Share the invite code below.</p>
+              ):(
                 <div className="space-y-2">
-                  {members.map((m,i) => (
-                    <div key={i} className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0"
+                  {members.map((m,i)=>(
+                    <div key={i} className="flex items-center gap-3 p-2 rounded-xl transition-all"
+                      style={{background:'var(--bg-3)'}}>
+                      <div className="w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0"
                         style={{background:'rgba(201,168,76,0.15)',color:'var(--gold)',border:'1px solid rgba(201,168,76,0.2)'}}>
                         {(m.user_name||m.user_email||'?')[0].toUpperCase()}
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium truncate" style={{color:'var(--text-primary)'}}>
-                          {m.user_name || m.user_email || 'Anonymous'}
+                          {m.user_name||'Anonymous'}
                         </p>
-                        {m.user_email && m.user_name && (
+                        {m.user_email&&(
                           <p className="text-xs truncate" style={{color:'var(--text-muted)'}}>{m.user_email}</p>
                         )}
                       </div>
-                      <span className="badge flex-shrink-0" style={{
-                        background: m.role==='owner'?'rgba(201,168,76,0.15)':'rgba(74,127,212,0.12)',
-                        color: m.role==='owner'?'var(--gold-light)':'#7aa8e8'
-                      }}>{m.role}</span>
+                      <span className="badge flex-shrink-0"
+                        style={{background:m.role==='owner'?'rgba(201,168,76,0.15)':'rgba(74,127,212,0.12)',
+                          color:m.role==='owner'?'var(--gold-light)':'#7aa8e8'}}>
+                        {m.role}
+                      </span>
+                      {/* Owner can remove members (not themselves) */}
+                      {user&&members.find(me=>me.user_id===user.uid&&me.role==='owner')&&m.role!=='owner'&&(
+                        <button
+                          onClick={async()=>{
+                            if(!confirm(`Remove ${m.user_name||m.user_email} from trip?`)) return
+                            setRemovingMember(m.user_id)
+                            try{
+                              await fetch(`${API}/api/trips/${params.id}/members/${m.user_id}`,{method:'DELETE'})
+                              setMembers(p=>p.filter(x=>x.user_id!==m.user_id))
+                            }catch(e){alert('Could not remove member')}
+                            finally{setRemovingMember(null)}
+                          }}
+                          disabled={removingMember===m.user_id}
+                          className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 transition-all"
+                          style={{background:'rgba(244,63,94,0.08)',border:'1px solid rgba(244,63,94,0.15)',color:'#fb7185'}}>
+                          {removingMember===m.user_id
+                            ? <Loader2 className="w-3 h-3 animate-spin"/>
+                            : <X className="w-3 h-3"/>}
+                        </button>
+                      )}
                     </div>
                   ))}
                 </div>
-              </div>
-            )}
+              )}
+            </div>
 
-            <h3 className="font-semibold mb-4" style={{color:'var(--text-primary)'}}>Invite your group</h3>
-              {/* Share link */}
+            {/* SHARE / INVITE */}
+            <div className="glass rounded-2xl p-5">
+              <h3 className="font-semibold mb-4" style={{color:'var(--text-primary)'}}>Invite your group</h3>
               <p className="section-label mb-2">Share link</p>
               <div className="flex gap-3 mb-4">
                 <input className="input-field flex-1"
                   value={typeof window!=='undefined'?window.location.href:''}
-                  readOnly />
+                  readOnly/>
                 <button className="btn-primary px-4 flex items-center gap-2" onClick={copyLink}>
                   {copied?'Copied!':'Copy link'}
                 </button>
               </div>
-              {/* Invite code */}
-              {(() => {
-                const code = typeof window!=='undefined'?sessionStorage.getItem('tripwise_invite_code'):null
-                return code ? (
+              {(()=>{
+                const code=typeof window!=='undefined'?sessionStorage.getItem('tripwise_invite_code'):null
+                return code?(
                   <div>
                     <p className="section-label mb-2">Invite code</p>
                     <div className="flex gap-3">
-                      <div className="input-field flex-1 font-mono text-center text-lg tracking-widest"
+                      <div className="input-field flex-1 font-mono text-center text-lg"
                         style={{color:'var(--gold-light)',letterSpacing:'0.2em'}}>{code}</div>
-                      <button className="btn-secondary px-4" onClick={()=>{navigator.clipboard.writeText(code)}}>Copy code</button>
+                      <button className="btn-secondary px-4"
+                        onClick={()=>navigator.clipboard.writeText(code)}>Copy</button>
                     </div>
-                    <p className="text-xs mt-2" style={{color:'var(--text-muted)'}}>Friends can paste this code on the home page to join your trip</p>
+                    <p className="text-xs mt-2" style={{color:'var(--text-muted)'}}>
+                      Friends paste this code on the TripWise home page to join
+                    </p>
                   </div>
-                ) : null
+                ):null
               })()}
             </div>
 
-            <div className="glass rounded-2xl p-6">
+            {/* EXPENSES + SPLITWISE */}
+            <div className="glass rounded-2xl p-5">
               <h3 className="font-semibold mb-4" style={{color:'var(--text-primary)'}}>Expense tracker</h3>
-              <div className="grid grid-cols-3 gap-2 mb-4">
-                <input className="input-field" placeholder="What for?" value={newExp.title}
-                  onChange={e=>setNewExp(p=>({...p,title:e.target.value}))} />
-                <input className="input-field" placeholder="$ Amount" type="number" value={newExp.amount}
-                  onChange={e=>setNewExp(p=>({...p,amount:e.target.value}))} />
-                <input className="input-field" placeholder="Paid by" value={newExp.who}
-                  onChange={e=>setNewExp(p=>({...p,who:e.target.value}))} />
+              <div className="grid grid-cols-1 gap-2 mb-3">
+                <input className="input-field" placeholder="What for? (e.g. Dinner at Tsukiji)"
+                  value={newExp.title} onChange={e=>setNewExp(p=>({...p,title:e.target.value}))}/>
+                <div className="grid grid-cols-2 gap-2">
+                  <input className="input-field" placeholder="$ Amount" type="number"
+                    value={newExp.amount} onChange={e=>setNewExp(p=>({...p,amount:e.target.value}))}/>
+                  {/* Paid by — dropdown of members */}
+                  <select className="input-field" value={newExp.who}
+                    onChange={e=>setNewExp(p=>({...p,who:e.target.value}))}>
+                    <option value="">Paid by...</option>
+                    {members.map((m,i)=>(
+                      <option key={i} value={m.user_name||m.user_email||m.user_id}>
+                        {m.user_name||m.user_email||'Member'}
+                      </option>
+                    ))}
+                    {/* Fallback if no members loaded */}
+                    {members.length===0&&<option value="Me">Me</option>}
+                  </select>
+                </div>
               </div>
-              <button className="btn-secondary w-full flex items-center justify-center gap-2"
+              <button className="btn-secondary w-full flex items-center justify-center gap-2 mb-4"
                 onClick={()=>{
                   if(newExp.title&&newExp.amount&&newExp.who){
                     setExpenses(p=>[...p,{title:newExp.title,amount:Number(newExp.amount),who:newExp.who}])
@@ -1129,10 +1667,12 @@ export default function TripPage() {
                 }}>
                 <Plus className="w-4 h-4"/>Add expense
               </button>
+
               {expenses.length>0&&(
-                <div className="mt-4 space-y-2">
+                <div className="space-y-2 mb-4">
                   {expenses.map((e,i)=>(
-                    <div key={i} className="flex items-center justify-between py-2 px-3 rounded-lg" style={{background:'var(--bg-3)'}}>
+                    <div key={i} className="flex items-center justify-between py-2 px-3 rounded-lg"
+                      style={{background:'var(--bg-3)'}}>
                       <div>
                         <span className="text-sm font-medium" style={{color:'var(--text-primary)'}}>{e.title}</span>
                         <span className="text-xs ml-2" style={{color:'var(--text-muted)'}}>paid by {e.who}</span>
@@ -1150,15 +1690,165 @@ export default function TripPage() {
                   </div>
                 </div>
               )}
+
+              {/* SPLITWISE logic */}
+              {expenses.length>0&&members.length>0&&(()=>{
+                // Calculate who owes whom
+                const memberNames = members.map(m=>m.user_name||m.user_email||m.user_id)
+                const totalPerPerson = expenses.reduce((s,e)=>s+e.amount,0)/memberNames.length
+                const paid: Record<string,number> = {}
+                memberNames.forEach(n=>{paid[n]=0})
+                expenses.forEach(e=>{if(paid[e.who]!==undefined) paid[e.who]+=e.amount})
+                const balances: Record<string,number> = {}
+                memberNames.forEach(n=>{balances[n]=(paid[n]||0)-totalPerPerson})
+                const creditors = Object.entries(balances).filter(([,v])=>v>0.5).sort((a,b)=>b[1]-a[1])
+                const debtors = Object.entries(balances).filter(([,v])=>v<-0.5).sort((a,b)=>a[1]-b[1])
+                const settlements: {from:string;to:string;amt:number}[] = []
+                const creds = creditors.map(([n,v])=>({n,v}))
+                const debts = debtors.map(([n,v])=>({n,v:Math.abs(v)}))
+                let ci=0,di=0
+                while(ci<creds.length&&di<debts.length){
+                  const pay=Math.min(creds[ci].v,debts[di].v)
+                  if(pay>0.5) settlements.push({from:debts[di].n,to:creds[ci].n,amt:Math.round(pay*100)/100})
+                  creds[ci].v-=pay; debts[di].v-=pay
+                  if(creds[ci].v<0.5) ci++
+                  if(debts[di].v<0.5) di++
+                }
+                return settlements.length>0?(
+                  <div className="mt-3 p-4 rounded-xl" style={{background:'rgba(45,212,160,0.06)',border:'1px solid rgba(45,212,160,0.2)'}}>
+                    <p className="text-xs font-semibold mb-3" style={{color:'#2dd4a0'}}>WHO PAYS WHOM</p>
+                    <div className="space-y-2">
+                      {settlements.map((s,i)=>(
+                        <div key={i} className="flex items-center gap-2">
+                          <span className="text-sm font-medium" style={{color:'var(--text-primary)'}}>{s.from}</span>
+                          <ArrowRight className="w-4 h-4" style={{color:'var(--text-muted)'}}/>
+                          <span className="text-sm font-medium" style={{color:'var(--text-primary)'}}>{s.to}</span>
+                          <span className="ml-auto font-bold" style={{color:'#2dd4a0'}}>${s.amt}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ):null
+              })()}
             </div>
 
+            {/* GROUP NOTES */}
+            <div className="glass rounded-2xl p-5">
+              <h3 className="font-semibold mb-4" style={{color:'var(--text-primary)'}}>Group notes</h3>
+              <p className="text-xs mb-4" style={{color:'var(--text-muted)'}}>
+                Add reminders, tips, or things everyone should know. Pin important ones.
+              </p>
+
+              {/* Add note */}
+              <div className="flex gap-3 mb-4">
+                <input className="input-field flex-1"
+                  placeholder="Add a note for the group..."
+                  value={newNote}
+                  onChange={e=>setNewNote(e.target.value)}
+                  onKeyDown={async e=>{
+                    if(e.key==='Enter'&&newNote.trim()&&user&&params.id&&params.id!=='new'){
+                      setAddingNote(true)
+                      try{
+                        const res=await fetch(`${API}/api/trips/${params.id}/notes`,{
+                          method:'POST',headers:{'Content-Type':'application/json'},
+                          body:JSON.stringify({trip_id:params.id,user_id:user.uid,user_name:user.displayName,content:newNote,pinned:false})
+                        })
+                        if(res.ok){const note=await res.json();setNotes(p=>[...p,note])}
+                      }catch(err){console.error(err)}
+                      finally{setAddingNote(false);setNewNote('')}
+                    }
+                  }}
+                />
+                <button
+                  disabled={addingNote||!newNote.trim()}
+                  onClick={async()=>{
+                    if(!newNote.trim()||!user||!params.id||params.id==='new') return
+                    setAddingNote(true)
+                    try{
+                      const res=await fetch(`${API}/api/trips/${params.id}/notes`,{
+                        method:'POST',headers:{'Content-Type':'application/json'},
+                        body:JSON.stringify({trip_id:params.id,user_id:user.uid,user_name:user.displayName,content:newNote,pinned:false})
+                      })
+                      if(res.ok){const note=await res.json();setNotes(p=>[...p,note])}
+                    }catch(err){console.error(err)}
+                    finally{setAddingNote(false);setNewNote('')}
+                  }}
+                  className="btn-primary px-4 flex items-center gap-2">
+                  {addingNote?<Loader2 className="w-4 h-4 animate-spin"/>:<Plus className="w-4 h-4"/>}
+                </button>
+              </div>
+
+              {/* Notes list */}
+              {notes.length===0?(
+                <p className="text-sm text-center py-4" style={{color:'var(--text-muted)'}}>No notes yet. Add something the group should know.</p>
+              ):(
+                <div className="space-y-2">
+                  {[...notes].sort((a,b)=>Number(b.pinned)-Number(a.pinned)).map((note,i)=>(
+                    <div key={note.id||i} className="flex items-start gap-3 p-3 rounded-xl transition-all"
+                      style={{
+                        background:note.pinned?'rgba(201,168,76,0.07)':'var(--bg-3)',
+                        border:`1px solid ${note.pinned?'rgba(201,168,76,0.25)':'var(--border)'}`,
+                      }}>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm" style={{color:'var(--text-primary)'}}>{note.content}</p>
+                        <p className="text-xs mt-1" style={{color:'var(--text-muted)'}}>
+                          {note.user_name||'Member'} · {note.created_at?new Date(note.created_at).toLocaleDateString():''}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-1 flex-shrink-0">
+                        {/* Pin toggle */}
+                        <button
+                          onClick={async()=>{
+                            const updated={...note,pinned:!note.pinned}
+                            setNotes(p=>p.map(n=>n.id===note.id?updated:n))
+                            if(note.id&&params.id&&params.id!=='new'){
+                              try{
+                                await fetch(`${API}/api/trips/${params.id}/notes/${note.id}`,{
+                                  method:'PATCH',headers:{'Content-Type':'application/json'},
+                                  body:JSON.stringify({pinned:!note.pinned})
+                                })
+                              }catch{}
+                            }
+                          }}
+                          className="w-7 h-7 rounded-lg flex items-center justify-center"
+                          style={{
+                            background:note.pinned?'rgba(201,168,76,0.2)':'var(--bg-4)',
+                            color:note.pinned?'var(--gold)':'var(--text-muted)',
+                          }}
+                          title={note.pinned?'Unpin':'Pin for everyone'}>
+                          📌
+                        </button>
+                        {/* Delete — only own notes */}
+                        {user&&note.user_id===user.uid&&(
+                          <button
+                            onClick={async()=>{
+                              setNotes(p=>p.filter(n=>n.id!==note.id))
+                              if(note.id&&params.id&&params.id!=='new'){
+                                try{
+                                  await fetch(`${API}/api/trips/${params.id}/notes/${note.id}?user_id=${user.uid}`,{method:'DELETE'})
+                                }catch{}
+                              }
+                            }}
+                            className="w-7 h-7 rounded-lg flex items-center justify-center"
+                            style={{background:'rgba(244,63,94,0.08)',color:'#fb7185'}}>
+                            <X className="w-3 h-3"/>
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* FOOD GUIDE */}
             <div className="glass rounded-2xl p-6">
               <h3 className="font-semibold mb-4" style={{color:'var(--text-primary)'}}>🍜 Food guide</h3>
               <div className="space-y-4">
                 <div>
                   <p className="section-label mb-2">Must try</p>
                   <div className="flex flex-wrap gap-2">
-                    {(itinerary.food_guide?.must_try||[]).map((f,i)=>(
+                    {(itinerary.food_guide?.must_try||[]).map((f:string,i:number)=>(
                       <span key={i} className="tag text-xs">{f}</span>
                     ))}
                   </div>
@@ -1167,22 +1857,24 @@ export default function TripPage() {
                   <div>
                     <p className="section-label mb-2">Vegetarian options</p>
                     <div className="flex flex-wrap gap-2">
-                      {itinerary.food_guide.vegetarian_options.map((f,i)=>(
+                      {itinerary.food_guide.vegetarian_options.map((f:string,i:number)=>(
                         <span key={i} className="tag text-xs">{f}</span>
                       ))}
                     </div>
                   </div>
                 )}
-                {(itinerary.food_guide?.food_safety_tips||[]).map((tip,i)=>(
+                {(itinerary.food_guide?.food_safety_tips||[]).map((tip:string,i:number)=>(
                   <div key={i} className="flex items-start gap-2">
-                    <Info className="w-3.5 h-3.5 mt-0.5" style={{color:'var(--gold)'}} />
+                    <Info className="w-3.5 h-3.5 mt-0.5" style={{color:'var(--gold)'}}/>
                     <p className="text-sm" style={{color:'var(--text-secondary)'}}>{tip}</p>
                   </div>
                 ))}
               </div>
             </div>
+
           </div>
         )}
+
       </div>
     </div>
   )

@@ -224,3 +224,18 @@ async def get_members(trip_id: str):
     except Exception as e:
         print(f"get_members error: {e}")
         return []
+
+
+# ── REMOVE MEMBER (owner only) ────────────────────────────────────────────────
+@router.delete("/trips/{trip_id}/members/{member_user_id}")
+async def remove_member(trip_id: str, member_user_id: str):
+    if not supabase:
+        return {"success": True}
+    try:
+        supabase.table("trip_members").delete()\
+            .eq("trip_id", trip_id)\
+            .eq("user_id", member_user_id)\
+            .execute()
+        return {"success": True}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))

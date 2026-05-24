@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import {
   Plane, MapPin, Globe, ArrowRight, Zap,
   Shield, Map, Wallet, Package, Phone,
-  ChevronRight, Star, Sparkles, Check, Link2,
+  ChevronRight, Star, Sparkles, Check, Link2, Compass,
   Hotel, Car, Bookmark, Download,
   LogOut, User, Loader2, History
 } from 'lucide-react'
@@ -126,7 +126,7 @@ function useTypewriter(words: string[], speed = 80, pause = 1800) {
   return display
 }
 
-function UserMenu({ user, onSignOut, onHistory }: { user: { displayName: string | null; photoURL: string | null; email: string | null }; onSignOut: () => void; onHistory: () => void }) {
+function UserMenu({ user, onSignOut, onHistory, onDiscover }: { user: { displayName: string | null; photoURL: string | null; email: string | null }; onSignOut: () => void; onHistory: () => void; onDiscover: () => void }) {
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
   useEffect(() => {
@@ -292,8 +292,8 @@ export default function HomePage() {
             className="absolute inset-0 transition-opacity duration-1500"
             style={{ opacity: i === bgIdx ? 1 : 0 }}>
             <img src={d.img} alt={d.city}
-              className="w-full h-full object-cover"
-              style={{ filter: 'brightness(0.22) saturate(0.8)' }} />
+              className="w-full h-full object-cover object-center"
+              style={{ filter: 'brightness(0.35) saturate(0.9)' }} />
           </div>
         ))}
         {/* Navy-to-transparent gradient so content below is readable */}
@@ -363,7 +363,16 @@ export default function HomePage() {
           <span className="font-display text-2xl font-bold gradient-text">TripWise</span>
         </div>
 
-        {/* Auth — right side */}
+        {/* Nav links + Auth */}
+        <div className="flex items-center gap-3">
+          <button onClick={() => router.push('/discover')}
+            className="hidden md:flex items-center gap-2 text-sm px-4 py-2 rounded-xl transition-all"
+            style={{ background: 'rgba(201,168,76,0.08)', border: '1px solid rgba(201,168,76,0.2)', color: 'var(--gold-light)' }}
+            onMouseEnter={e => (e.currentTarget.style.background = 'rgba(201,168,76,0.15)')}
+            onMouseLeave={e => (e.currentTarget.style.background = 'rgba(201,168,76,0.08)')}>
+            <Sparkles className="w-3.5 h-3.5" />
+            Find a destination
+          </button>
         <div>
           {authLoading ? (
             <div className="w-9 h-9 rounded-full flex items-center justify-center"
@@ -371,7 +380,7 @@ export default function HomePage() {
               <Loader2 className="w-4 h-4 animate-spin" style={{ color: 'var(--text-muted)' }} />
             </div>
           ) : user ? (
-            <UserMenu user={user} onSignOut={handleSignOut} onHistory={() => router.push('/history')} />
+            <UserMenu user={user} onSignOut={handleSignOut} onHistory={() => router.push('/history')} onDiscover={() => router.push('/discover')} />
           ) : (
             <button onClick={() => setShowAuthModal(true)}
               className="flex items-center gap-2 btn-primary text-sm py-2.5 px-5">
@@ -379,6 +388,7 @@ export default function HomePage() {
               Sign in
             </button>
           )}
+        </div>
         </div>
       </nav>
 
@@ -442,7 +452,7 @@ export default function HomePage() {
         {/* Stats */}
         <div className="flex items-center justify-center gap-8 md:gap-16 flex-wrap reveal stagger"
           style={{ transitionDelay: '400ms' }}>
-          {[{ v: '2 min', l: 'Avg planning time' }, { v: '50+', l: 'Countries covered' }, { v: '9', l: 'Integrated modules' }, { v: 'Free', l: 'To start' }].map(({ v, l }) => (
+          {[{ v: '2 min', l: 'Avg planning time' }, { v: 'AI', l: 'Powered planning' }, { v: 'Free', l: 'To start' }].map(({ v, l }) => (
             <div key={l} className="text-center">
               <div className="font-display text-3xl font-bold gradient-text">{v}</div>
               <div className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>{l}</div>

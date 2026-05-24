@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next'
 import './globals.css'
 import { AuthProvider } from '@/context/AuthContext'
+import ProgressBar from '@/components/ProgressBar'
 
 export const metadata: Metadata = {
   title: 'TripWise — Intelligent Travel Planning',
@@ -28,6 +29,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       <body>
         <AuthProvider>
+          <ProgressBar />
           {children}
         </AuthProvider>
       </body>
