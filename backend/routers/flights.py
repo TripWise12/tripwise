@@ -87,7 +87,7 @@ Return ONLY raw JSON:
       "pros": ["Direct flight"],
       "cons": ["Early departure"],
       "book_url": "https://www.skyscanner.com",
-      "skyscanner_url": "https://www.skyscanner.com/transport/flights/{req.origin[:3].lower()}/{req.destination[:3].lower()}/{req.departure_date.replace('-','')}/"
+      "skyscanner_url": "https://www.skyscanner.com"
     }},
     {{
       "id": "FL002",
@@ -108,7 +108,7 @@ Return ONLY raw JSON:
       "pros": ["Lowest price"],
       "cons": ["1 stop"],
       "book_url": "https://www.skyscanner.com",
-      "skyscanner_url": "https://www.skyscanner.com/transport/flights/{req.origin[:3].lower()}/{req.destination[:3].lower()}/{req.departure_date.replace('-','')}/"
+      "skyscanner_url": "https://www.skyscanner.com"
     }},
     {{
       "id": "FL003",
@@ -129,7 +129,7 @@ Return ONLY raw JSON:
       "pros": ["Highest reliability", "30kg baggage"],
       "cons": ["Most expensive"],
       "book_url": "https://www.skyscanner.com",
-      "skyscanner_url": "https://www.skyscanner.com/transport/flights/{req.origin[:3].lower()}/{req.destination[:3].lower()}/{req.departure_date.replace('-','')}/"
+      "skyscanner_url": "https://www.skyscanner.com"
     }}
   ],
   "flexible_dates": {{
@@ -147,7 +147,15 @@ Return ONLY raw JSON:
 Use real airlines that fly {req.origin} to {req.destination}. Return ONLY raw JSON."""
 
     try:
-        return json.loads(clean_json(generate_with_retry(prompt)))
+        result = json.loads(clean_json(generate_with_retry(prompt)))
+        # Inject real Skyscanner URL
+        orig = req.origin.split(',')[0].strip()[:3].lower()
+        dest = req.destination.split(',')[0].strip()[:3].lower()
+        date = req.departure_date.replace('-', '')
+        sky_url = f"https://www.skyscanner.com/transport/flights/{orig}/{dest}/{date}/"
+        for r in result.get("results", []):
+            r["skyscanner_url"] = sky_url
+        return result
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -293,6 +301,8 @@ Return ONLY raw JSON:
       "category": "budget",
       "chain_or_local": "local",
       "area": "Neighbourhood name",
+      "lat": 35.7148,
+      "lng": 139.7967,
       "stars": 3,
       "rating": 8.4,
       "rating_label": "Very Good",
@@ -386,6 +396,7 @@ Return ONLY raw JSON:
 }}
 
 Generate 5 real hotel options in {req.destination} — mix of budget/mid/luxury and local/chain.
+Include REAL lat/lng coordinates for each hotel in {req.destination}.
 Return ONLY raw JSON."""
 
     try:

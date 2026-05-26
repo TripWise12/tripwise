@@ -12,6 +12,7 @@ import {
   Calendar, Music, Flag, Download, ExternalLink, Lightbulb
 } from 'lucide-react'
 import { useAuth } from '@/context/AuthContext'
+import EmbedMap from '@/components/EmbedMap'
 
 const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
 const TABS = ['Overview','Itinerary','Flights','Hotels','Packing','Budget','Group']
@@ -49,15 +50,60 @@ function HotelsTab({tripData,itinerary}:{tripData:Record<string,unknown>,itinera
   return (
     <div className="space-y-4">
       {!hotels&&!loading&&(
-        <div className="glass rounded-2xl p-10 text-center">
-          <Hotel className="w-12 h-12 mx-auto mb-4" style={{color:'var(--text-muted)'}}/>
-          <h3 className="font-display text-xl font-bold mb-2" style={{color:'var(--text-primary)'}}>Find hotels</h3>
-          <p className="text-sm mb-6" style={{color:'var(--text-secondary)'}}>
-            Compare local gems, boutique hotels, and chains — with location context
-          </p>
-          <button className="btn-primary flex items-center gap-2 mx-auto" onClick={searchHotels}>
-            <Zap className="w-4 h-4"/>Search hotels
-          </button>
+        <div className="space-y-4">
+          {/* Show destination map even before searching */}
+          {(() => {
+            const dest = (tripData.destination || itinerary?.destination || '') as string
+            // Default coordinates for common cities
+            const cityCoords: Record<string,{lat:number,lng:number}> = {
+              'tokyo': {lat:35.6762,lng:139.6503},
+              'singapore': {lat:1.3521,lng:103.8198},
+              'bangkok': {lat:13.7563,lng:100.5018},
+              'bali': {lat:-8.4095,lng:115.1889},
+              'paris': {lat:48.8566,lng:2.3522},
+              'london': {lat:51.5074,lng:-0.1278},
+              'dubai': {lat:25.2048,lng:55.2708},
+              'new york': {lat:40.7128,lng:-74.0060},
+              'rome': {lat:41.9028,lng:12.4964},
+              'sydney': {lat:-33.8688,lng:151.2093},
+              'mumbai': {lat:19.0760,lng:72.8777},
+              'delhi': {lat:28.6139,lng:77.2090},
+            }
+            const key = dest.toLowerCase().split(',')[0].trim()
+            const coords = cityCoords[key] || {lat:35.6762,lng:139.6503}
+            const bbox = `${coords.lng-0.06},${coords.lat-0.05},${coords.lng+0.06},${coords.lat+0.05}`
+            return (
+              <div className="rounded-2xl overflow-hidden" style={{border:'1px solid var(--border)'}}>
+                <div className="px-4 py-3 flex items-center justify-between" style={{background:'var(--bg-3)',borderBottom:'1px solid var(--border)'}}>
+                  <span className="text-sm font-semibold flex items-center gap-2" style={{color:'var(--text-primary)'}}>
+                    <MapPin className="w-4 h-4" style={{color:'var(--gold)'}}/> Hotels area — {dest}
+                  </span>
+                  <a href={`https://www.google.com/maps/search/hotels+in+${encodeURIComponent(dest)}`}
+                    target="_blank" rel="noopener noreferrer"
+                    className="text-xs px-3 py-1.5 rounded-lg flex items-center gap-1.5"
+                    style={{background:'rgba(201,168,76,0.1)',border:'1px solid rgba(201,168,76,0.2)',color:'var(--gold-light)'}}>
+                    <ExternalLink className="w-3 h-3"/>Google Maps
+                  </a>
+                </div>
+                <iframe
+                  src={`https://www.openstreetmap.org/export/embed.html?bbox=${bbox}&layer=mapnik&marker=${coords.lat},${coords.lng}`}
+                  style={{width:'100%',height:300,border:'none'}}
+                  loading="lazy"
+                  title={`Map of ${dest}`}
+                />
+              </div>
+            )
+          })()}
+          <div className="glass rounded-2xl p-8 text-center">
+            <Hotel className="w-12 h-12 mx-auto mb-4" style={{color:'var(--text-muted)'}}/>
+            <h3 className="font-display text-xl font-bold mb-2" style={{color:'var(--text-primary)'}}>Find hotels</h3>
+            <p className="text-sm mb-6" style={{color:'var(--text-secondary)'}}>
+              Compare local gems, boutique hotels and chains — with location maps
+            </p>
+            <button className="btn-primary flex items-center gap-2 mx-auto" onClick={searchHotels}>
+              <Zap className="w-4 h-4"/>Search hotels
+            </button>
+          </div>
         </div>
       )}
 
@@ -113,6 +159,50 @@ function HotelsTab({tripData,itinerary}:{tripData:Record<string,unknown>,itinera
               </div>
             </div>
           )}
+
+          {/* Embedded map showing hotel locations relative to attractions */}
+          {filtered.length > 0 && (() => {
+            const mapLocs = filtered.slice(0,5).map((h:any) => ({
+              name: h.name,
+              lat: h.lat || 0,
+              lng: h.lng || 0,
+              type: 'hotel' as const,
+              description: h.why_recommended,
+              distance: h.distance_to_center,
+            })).filter((l:any) => l.lat !== 0)
+            const dest = (tripData.destination || itinerary?.destination || '') as string
+            return mapLocs.length === 0 ? (
+              <div className="rounded-2xl overflow-hidden mb-4" style={{border:'1px solid var(--border)'}}>
+                <div className="p-3 flex items-center justify-between" style={{background:'var(--bg-3)',borderBottom:'1px solid var(--border)'}}>
+                  <span className="text-sm font-semibold flex items-center gap-2" style={{color:'var(--text-primary)'}}>
+                    <span>📍</span> Hotel locations in {dest}
+                  </span>
+                </div>
+                <iframe
+                  src={`https://www.openstreetmap.org/export/embed.html?bbox=103.7,1.25,103.95,1.38&layer=mapnik`}
+                  style={{width:'100%',height:320,border:'none'}}
+                  loading="lazy"
+                  title="Hotel map"
+                />
+                <div className="p-3" style={{background:'var(--bg-2)'}}>
+                  <p className="text-xs" style={{color:'var(--text-muted)'}}>
+                    Search hotels to see exact locations on the map
+                  </p>
+                  <a href={`https://www.google.com/maps/search/hotels+in+${encodeURIComponent(dest)}`}
+                    target="_blank" rel="noopener noreferrer"
+                    className="text-xs mt-1 flex items-center gap-1" style={{color:'var(--gold-light)'}}>
+                    View hotels on Google Maps →
+                  </a>
+                </div>
+              </div>
+            ) : (
+              <EmbedMap
+                locations={mapLocs}
+                title={`Hotels in ${dest}`}
+                height={320}
+              />
+            )
+          })()}
 
           {/* Filters + sort */}
           <div className="flex items-center gap-3 flex-wrap">
@@ -684,12 +774,69 @@ function FlightsTab({tripData}:{tripData:Record<string,unknown>}) {
       {/* FLIGHTS ONLY */}
       {activeMode==='flights'&&(
         <div className="space-y-4">
+          {/* Skyscanner embedded search widget - always visible */}
+          {(() => {
+            const orig = (tripData.origin||'').toString().split(',')[0].trim()
+            const dest = (tripData.destination || itinerary?.destination || '').toString().split(',')[0].trim()
+            const dep = (tripData.start_date||'').toString().replace(/-/g,'')
+            const ret = (tripData.end_date||'').toString().replace(/-/g,'')
+            const adults = Number(tripData.group_size||1)
+            // Skyscanner search URL
+            const skyUrl = dep
+              ? `https://www.skyscanner.com/transport/flights/${orig.toLowerCase().replace(/\s/g,'')}/${dest.toLowerCase().replace(/\s/g,'')}/${dep}/${ret}/?adults=${adults}&cabinclass=economy`
+              : `https://www.skyscanner.com/transport/flights/${orig.toLowerCase().replace(/\s/g,'')}/${dest.toLowerCase().replace(/\s/g,'')}/`
+            return (
+              <div className="glass rounded-2xl p-5 mb-4">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="w-8 h-8 rounded-lg flex items-center justify-center"
+                    style={{background:'rgba(0,134,195,0.15)',border:'1px solid rgba(0,134,195,0.3)'}}>
+                    <span className="text-sm">✈️</span>
+                  </div>
+                  <div>
+                    <p className="font-semibold text-sm" style={{color:'var(--text-primary)'}}>
+                      Search on Skyscanner
+                    </p>
+                    <p className="text-xs" style={{color:'var(--text-muted)'}}>
+                      {orig} → {dest} · {adults} passenger{adults>1?'s':''}
+                    </p>
+                  </div>
+                  <a href={skyUrl} target="_blank" rel="noopener noreferrer"
+                    className="ml-auto btn-primary flex items-center gap-2 text-sm py-2.5 px-4">
+                    <ExternalLink className="w-3.5 h-3.5"/>Open Skyscanner
+                  </a>
+                </div>
+                {/* Platform comparison grid */}
+                <p className="section-label mb-3">Compare on all platforms</p>
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                  {[
+                    {name:'Skyscanner', url:skyUrl, note:'Best overall comparison', color:'rgba(0,134,195,0.1)', border:'rgba(0,134,195,0.25)'},
+                    {name:'Google Flights', url:`https://flights.google.com/search?q=flights+from+${encodeURIComponent(orig)}+to+${encodeURIComponent(dest)}`, note:'Price calendar & alerts', color:'rgba(66,133,244,0.1)', border:'rgba(66,133,244,0.25)'},
+                    {name:'Kayak', url:`https://www.kayak.com/flights/${orig.replace(/\s/g,'-')}-${dest.replace(/\s/g,'-')}/${dep||''}/${ret||''}/${adults}adults`, note:'Flexible date search', color:'rgba(255,111,0,0.1)', border:'rgba(255,111,0,0.25)'},
+                    {name:'Momondo', url:`https://www.momondo.com/flight-search/${orig}/${dest}/${dep||''}/${ret||''}`, note:'Often finds hidden deals', color:'rgba(255,87,34,0.1)', border:'rgba(255,87,34,0.25)'},
+                    {name:'Expedia', url:`https://www.expedia.com/Flights-Search?trip=roundtrip&leg1=from:${orig},to:${dest},departure:${dep||''}`, note:'Bundle with hotel', color:'rgba(0,170,240,0.1)', border:'rgba(0,170,240,0.25)'},
+                    {name:'Kiwi.com', url:`https://www.kiwi.com/en/search/results/${orig.toLowerCase()}/${dest.toLowerCase()}/${dep||''}/${ret||''}`, note:'Cheapest multi-stop routes', color:'rgba(0,200,150,0.1)', border:'rgba(0,200,150,0.25)'},
+                  ].map((p,i)=>(
+                    <a key={i} href={p.url} target="_blank" rel="noopener noreferrer"
+                      className="flex items-center justify-between p-3 rounded-xl transition-all hover-lift"
+                      style={{background:p.color, border:`1px solid ${p.border}`}}>
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold" style={{color:'var(--text-primary)'}}>{p.name}</p>
+                        <p className="text-xs truncate" style={{color:'var(--text-muted)'}}>{p.note}</p>
+                      </div>
+                      <ExternalLink className="w-3.5 h-3.5 ml-2 flex-shrink-0" style={{color:'var(--text-muted)'}}/>
+                    </a>
+                  ))}
+                </div>
+              </div>
+            )
+          })()}
+
           {!flights&&!loadingF&&(
-            <div className="glass rounded-2xl p-10 text-center">
+            <div className="glass rounded-2xl p-8 text-center">
               <Plane className="w-12 h-12 mx-auto mb-4" style={{color:'var(--text-muted)'}}/>
-              <h3 className="font-display text-xl font-bold mb-2" style={{color:'var(--text-primary)'}}>Search flights</h3>
+              <h3 className="font-display text-xl font-bold mb-2" style={{color:'var(--text-primary)'}}>AI flight comparison</h3>
               <p className="text-sm mb-6" style={{color:'var(--text-secondary)'}}>
-                Compare airlines, prices, and booking platforms
+                Get AI-curated flight options with price and reliability comparison
               </p>
               <button className="btn-primary flex items-center gap-2 mx-auto" onClick={searchFlights} disabled={loadingF}>
                 {loadingF?<Loader2 className="w-4 h-4 animate-spin"/>:<Zap className="w-4 h-4"/>}
@@ -1270,6 +1417,32 @@ export default function TripPage() {
                     <p className="text-xs" style={{color:'var(--gold-light)'}}>{days[activeDay].day_tip}</p>
                   </div>
                 )}
+
+                {/* Day map — shows all locations for this day */}
+                {(() => {
+                  const dayLocs = (days[activeDay].slots || [])
+                    .filter((s:any) => s.lat && s.lng && s.lat !== 0)
+                    .map((s:any) => ({
+                      name: s.title,
+                      lat: s.lat,
+                      lng: s.lng,
+                      type: (s.type === 'meal' ? 'restaurant' : s.type === 'transport' ? 'transport' : 'attraction') as any,
+                      description: s.notes,
+                      distance: s.location,
+                    }))
+                  return dayLocs.length >= 2 ? (
+                    <div className="mb-5">
+                      <EmbedMap
+                        locations={dayLocs}
+                        centerLat={dayLocs[0].lat}
+                        centerLng={dayLocs[0].lng}
+                        title={`Day ${days[activeDay].day} — ${days[activeDay].theme}`}
+                        height={280}
+                        zoom={13}
+                      />
+                    </div>
+                  ) : null
+                })()}
 
                 <div className="space-y-0 mb-5">
                   {(days[activeDay].slots||[]).map((slot,si)=>(

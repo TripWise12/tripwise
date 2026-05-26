@@ -29,11 +29,14 @@ const FEATURES = [
 
 const TOKYO_EXAMPLE = {
   days: [
-    { day: 1, theme: 'Arrival & Shinjuku', items: ['Land at Narita — take NEX train ¥3,070', 'Check in at Shinjuku Granbell Hotel', 'Evening stroll through Kabukicho & Omoide Yokocho'], cost: '$65' },
-    { day: 2, theme: 'Temples & Culture', items: ['Senso-ji Temple at 8AM before crowds arrive', 'Tsukiji Outer Market — fresh sushi breakfast', 'teamLab Planets 3PM — book 2 weeks ahead'], cost: '$80' },
-    { day: 3, theme: 'Harajuku & Shibuya', items: ['Meiji Jingu Shrine morning walk in the forest', 'Harajuku Takeshita Street & Omotesando', 'Shibuya Crossing at dusk — dinner in Nonbei Yokocho'], cost: '$75' },
+    { day: 1, theme: 'Arrival & Shinjuku',    items: ['Narita → Shinjuku on NEX train ¥3,070', 'Check in, explore Omoide Yokocho (Memory Lane)', 'Ramen dinner at Ichiran — solo booths'], cost: '$55' },
+    { day: 2, theme: 'Temples & Old Tokyo',   items: ['Senso-ji at 7AM — before the crowds hit', 'Tsukiji Outer Market — fresh tuna sashimi breakfast', 'teamLab Planets digital art — book 2 weeks ahead'], cost: '$85' },
+    { day: 3, theme: 'Harajuku & Shibuya',    items: ['Meiji Shrine morning walk through cedar forest', 'Harajuku Takeshita St + Omotesando boutiques', 'Shibuya scramble at dusk — dinner in Nonbei Yokocho'], cost: '$75' },
+    { day: 4, theme: 'Day Trip to Nikko',     items: ['Shinkansen to Nikko (1.5hr) — stunning mountain temples', 'Tosho-gu Shrine complex — UNESCO heritage site', 'Back to Tokyo — kaiseki dinner in Ginza'], cost: '$90' },
+    { day: 5, theme: 'Akihabara & Ueno',      items: ['Akihabara electronics & anime district — morning', 'Ueno Park & Tokyo National Museum after lunch', 'Izakaya bar hopping in Shimokitazawa at night'], cost: '$65' },
+    { day: 6, theme: 'Departure Day',         items: ['Tsukiji breakfast one last time at 7AM', 'Last-minute shopping in Shibuya or duty-free', 'NEX train to Narita — check-in 3hrs before'], cost: '$40' },
   ],
-  budget: { flights: '$550', hotel: '$360', food: '$120', transport: '$45', activities: '$90', total: '$1,165' },
+  budget: { flights: '$550', hotel: '$360', food: '$120', transport: '$55', activities: '$90', total: '$1,175' },
 }
 
 const TICKER_ITEMS = ['Tokyo 🇯🇵', 'Bali 🇮🇩', 'Paris 🇫🇷', 'New York 🇺🇸', 'London 🇬🇧', 'Bangkok 🇹🇭', 'Dubai 🇦🇪', 'Singapore 🇸🇬', 'Rome 🇮🇹', 'Sydney 🇦🇺', 'Istanbul 🇹🇷', 'Barcelona 🇪🇸', 'Maldives 🇲🇻', 'Kyoto 🇯🇵', 'Amsterdam 🇳🇱']
@@ -571,7 +574,7 @@ export default function HomePage() {
               A complete trip — built in 90 seconds
             </h2>
             <p className="mt-4 text-lg" style={{ color: 'var(--text-secondary)' }}>
-              Mumbai → Tokyo. 6 days. Everything planned.
+              Mumbai → Tokyo. 6 days. Every detail planned.
             </p>
           </div>
 
@@ -602,9 +605,10 @@ export default function HomePage() {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6 stagger">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
             {TOKYO_EXAMPLE.days.map((day, i) => (
-              <div key={i} className="glass feature-card rounded-2xl p-5 reveal" style={{ transitionDelay: `${i * 100}ms` }}>
+              <div key={i} className="glass feature-card rounded-2xl p-5 reveal card-enter"
+                style={{ transitionDelay: `${i * 80}ms`, animationDelay: `${i * 80}ms` }}>
                 <div className="flex items-center justify-between mb-3">
                   <span className="badge badge-gold">Day {day.day}</span>
                   <span className="text-xs font-mono" style={{ color: 'var(--text-muted)' }}>{day.cost}</span>
