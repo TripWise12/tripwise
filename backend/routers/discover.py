@@ -6,8 +6,8 @@ from datetime import datetime, timedelta
 
 router = APIRouter()
 genai.configure(api_key=os.getenv("GEMINI_API_KEY", ""))
-PRIMARY_MODEL = "gemini-3.1-flash-lite"
-FALLBACK_MODEL = "gemini-2.5-flash"
+PRIMARY_MODEL = "gemini-3.5-flash"
+FALLBACK_MODEL = "gemini-3.1-flash-lite"
 
 def generate_with_retry(prompt, max_retries=3):
     models = [PRIMARY_MODEL] * max_retries + [FALLBACK_MODEL]

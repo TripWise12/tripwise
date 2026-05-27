@@ -8,8 +8,8 @@ import time
 router = APIRouter()
 genai.configure(api_key=os.getenv("GEMINI_API_KEY", ""))
 
-PRIMARY_MODEL = "gemini-3.1-flash-lite"
-FALLBACK_MODEL = "gemini-2.5-flash"
+PRIMARY_MODEL = "gemini-3.5-flash"
+FALLBACK_MODEL = "gemini-3.1-flash-lite"
 
 def get_model(name):
     return genai.GenerativeModel(name)
