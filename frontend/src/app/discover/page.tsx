@@ -27,39 +27,67 @@ const TIMEFRAMES = [
   { val: 4, label: 'Next 4 months', desc: 'Best prices, most options' },
 ]
 
-// Curated Unsplash photo IDs per city
-const CITY_PHOTOS: Record<string, string> = {
-  tokyo: '1540959733332-eab4deabeeaf',
-  bali: '1537996194471-e657df975ab4',
-  paris: '1502602898657-3e91760cbb34',
-  'new york': '1485871981521-5b1fd3805eee',
-  london: '1513635269975-59663e0ac1ad',
-  bangkok: '1563492065599-3520f775eeed',
-  dubai: '1512453979798-5ea266f8880c',
-  singapore: '1525625293386-3f8f99389edd',
-  rome: '1552832230-c0197dd311b5',
-  sydney: '1506973035872-a4ec16b8e8d9',
-  barcelona: '1583422409516-2895a77efded',
-  amsterdam: '1534351590666-13e3e96b5702',
-  istanbul: '1524231757912-21f4fe3a7200',
-  seoul: '1601979031925-424d5056e54b',
-  kyoto: '1493976040374-85c8e12f0c0e',
-  maldives: '1514282401047-d79a71a590e8',
-  'kuala lumpur': '1596422846543-ba35f8a7e3f9',
-  'hong kong': '1536599018926-a7ef57d9b851',
-  prague: '1541849546-216c0b64e813',
-  lisbon: '1548707309-dcebeab9ea9b',
-  vienna: '1516550135131-ff64accc9eb4',
-  delhi: '1587474260584-136574297316',
-  mumbai: '1570168007204-dfb528c6958f',
+// Use Unsplash Source API - searches by keyword, always returns a relevant image
+// No API key needed, always works
+function getUnsplashUrl(city: string, country: string): string {
+  const query = encodeURIComponent(`${city} ${country} travel cityscape`)
+  // Use Unsplash source with search - returns real relevant photo
+  return `https://source.unsplash.com/600x400/?${query}`
 }
 
-function getPhoto(city: string): string {
-  const key = city.toLowerCase()
-  for (const [k, v] of Object.entries(CITY_PHOTOS)) {
-    if (key.includes(k) || k.includes(key)) return v
+// Fallback curated IDs for top cities (faster load)
+const CITY_PHOTOS: Record<string, string> = {
+  'tokyo':        '1540959733332-eab4deabeeaf',
+  'bali':         '1537996194471-e657df975ab4',
+  'paris':        '1502602898657-3e91760cbb34',
+  'new york':     '1485871981521-5b1fd3805eee',
+  'london':       '1513635269975-59663e0ac1ad',
+  'bangkok':      '1563492065599-3520f775eeed',
+  'dubai':        '1512453979798-5ea266f8880c',
+  'singapore':    '1525625293386-3f8f99389edd',
+  'rome':         '1552832230-c0197dd311b5',
+  'sydney':       '1506973035872-a4ec16b8e8d9',
+  'barcelona':    '1583422409516-2895a77efded',
+  'amsterdam':    '1534351590666-13e3e96b5702',
+  'istanbul':     '1524231757912-21f4fe3a7200',
+  'seoul':        '1601979031925-424d5056e54b',
+  'kyoto':        '1493976040374-85c8e12f0c0e',
+  'maldives':     '1514282401047-d79a71a590e8',
+  'kuala lumpur': '1596422846543-ba35f8a7e3f9',
+  'hong kong':    '1536599018926-a7ef57d9b851',
+  'prague':       '1541849546-216c0b64e813',
+  'lisbon':       '1548707309-dcebeab9ea9b',
+  'vienna':       '1516550135131-ff64accc9eb4',
+  'delhi':        '1587474260584-136574297316',
+  'mumbai':       '1570168007204-dfb528c6958f',
+  'phuket':       '1537996194471-e657df975ab4',
+  'milan':        '1520175090-80f9e48d5852',
+  'berlin':       '1560969184-10fe8719e047',
+  'zurich':       '1515488534-d5d8f5f3b3d3',
+  'toronto':      '1517935706615-2717063c2225',
+  'vancouver':    '1560813962-ff3d8fcf59ba',
+  'cape town':    '1580060839134-75a5edca2e99',
+  'nairobi':      '1547517023-7d00575dc9f1',
+  'cairo':        '1539650116574-75c0c6d73f6e',
+  'mexico city':  '1518638150340-f706e86654de',
+  'rio':          '1483729600765-4c5f2c0e0ae2',
+  'buenos aires': '1589909202802-8f4aadce9d53',
+}
+
+function getPhotoUrl(city: string, country: string): string {
+  const key = city.toLowerCase().trim()
+  // Try exact match first
+  if (CITY_PHOTOS[key]) {
+    return `https://images.unsplash.com/photo-${CITY_PHOTOS[key]}?w=600&q=80&auto=format&fit=crop`
   }
-  return '1488646953014-85cb44e25828' // generic travel fallback
+  // Try partial match
+  for (const [k, v] of Object.entries(CITY_PHOTOS)) {
+    if (key.includes(k) || k.includes(key.split(' ')[0])) {
+      return `https://images.unsplash.com/photo-${v}?w=600&q=80&auto=format&fit=crop`
+    }
+  }
+  // Fall back to Unsplash Source API (keyword search - always returns relevant image)
+  return `https://source.unsplash.com/600x400/?${encodeURIComponent(city + ' ' + country + ' travel')}`
 }
 
 function DealBar({ score }: { score: number }) {
@@ -371,13 +399,19 @@ export default function DiscoverPage() {
                   <div className="relative w-full md:w-52 flex-shrink-0 overflow-hidden"
                     style={{ minHeight: '200px' }}>
                     <img
-                      src={`https://images.unsplash.com/photo-${getPhoto(dest.city)}?w=500&q=80`}
-                      alt={dest.city}
+                      src={getPhotoUrl(dest.city, dest.country || '')}
+                      alt={`${dest.city}, ${dest.country}`}
                       className="w-full h-full object-cover object-center"
                       style={{ minHeight: '200px' }}
+                      loading="lazy"
                       onError={e => {
-                        (e.target as HTMLImageElement).src =
-                          'https://images.unsplash.com/photo-1488646953014-85cb44e25828?w=500&q=80'
+                        // Try Unsplash Source as fallback
+                        const t = e.target as HTMLImageElement
+                        if (!t.src.includes('source.unsplash')) {
+                          t.src = `https://source.unsplash.com/600x400/?${encodeURIComponent(dest.city + ' travel landmark')}`
+                        } else {
+                          t.src = 'https://images.unsplash.com/photo-1488646953014-85cb44e25828?w=600&q=80'
+                        }
                       }}
                     />
                     {/* Rank badge */}

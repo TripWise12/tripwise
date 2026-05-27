@@ -160,47 +160,62 @@ function HotelsTab({tripData,itinerary}:{tripData:Record<string,unknown>,itinera
             </div>
           )}
 
-          {/* Embedded map showing hotel locations relative to attractions */}
+          {/* Hotels map — hotels as gold pins + major itinerary attractions as blue pins */}
           {filtered.length > 0 && (() => {
-            const mapLocs = filtered.slice(0,5).map((h:any) => ({
-              name: h.name,
-              lat: h.lat || 0,
-              lng: h.lng || 0,
-              type: 'hotel' as const,
-              description: h.why_recommended,
-              distance: h.distance_to_center,
-            })).filter((l:any) => l.lat !== 0)
             const dest = (tripData.destination || itinerary?.destination || '') as string
-            return mapLocs.length === 0 ? (
-              <div className="rounded-2xl overflow-hidden mb-4" style={{border:'1px solid var(--border)'}}>
-                <div className="p-3 flex items-center justify-between" style={{background:'var(--bg-3)',borderBottom:'1px solid var(--border)'}}>
-                  <span className="text-sm font-semibold flex items-center gap-2" style={{color:'var(--text-primary)'}}>
-                    <span>📍</span> Hotel locations in {dest}
-                  </span>
-                </div>
-                <iframe
-                  src={`https://www.openstreetmap.org/export/embed.html?bbox=103.7,1.25,103.95,1.38&layer=mapnik`}
-                  style={{width:'100%',height:320,border:'none'}}
-                  loading="lazy"
-                  title="Hotel map"
-                />
-                <div className="p-3" style={{background:'var(--bg-2)'}}>
-                  <p className="text-xs" style={{color:'var(--text-muted)'}}>
-                    Search hotels to see exact locations on the map
-                  </p>
-                  <a href={`https://www.google.com/maps/search/hotels+in+${encodeURIComponent(dest)}`}
-                    target="_blank" rel="noopener noreferrer"
-                    className="text-xs mt-1 flex items-center gap-1" style={{color:'var(--gold-light)'}}>
-                    View hotels on Google Maps →
-                  </a>
-                </div>
+
+            // Hotel locations
+            const hotelLocs = filtered.slice(0,6)
+              .filter((h:any) => h.lat && h.lng && Number(h.lat) !== 0)
+              .map((h:any) => ({
+                name: h.name,
+                lat: Number(h.lat),
+                lng: Number(h.lng),
+                type: 'hotel' as const,
+                isMain: true,
+                description: `★ ${h.rating}/10 · ${h.distance_to_center} · $${h.price_per_night_usd}/night`,
+                distance: h.distance_to_main_attraction || h.distance_to_center,
+              }))
+
+            // Pull top attractions from itinerary day 1-2 as context
+            const attractionLocs = (itinerary?.days || []).slice(0, 2)
+              .flatMap((d:any) => (d.slots || []))
+              .filter((s:any) => s.lat && s.lng && Number(s.lat) !== 0 && s.type !== 'transport')
+              .slice(0, 4)
+              .map((s:any) => ({
+                name: s.title,
+                lat: Number(s.lat),
+                lng: Number(s.lng),
+                type: 'attraction' as const,
+                description: s.location,
+              }))
+
+            const allMapLocs = [...hotelLocs, ...attractionLocs]
+
+            return allMapLocs.length === 0 ? (
+              <div className="glass rounded-2xl p-4 mb-4 text-center">
+                <MapPin className="w-8 h-8 mx-auto mb-2" style={{color:'var(--text-muted)'}}/>
+                <p className="text-sm" style={{color:'var(--text-muted)'}}>
+                  Map loads once hotels have location data
+                </p>
+                <a href={`https://www.google.com/maps/search/hotels+in+${encodeURIComponent(dest)}`}
+                  target="_blank" rel="noopener noreferrer"
+                  className="text-xs mt-2 inline-flex items-center gap-1" style={{color:'var(--gold-light)'}}>
+                  <ExternalLink className="w-3 h-3"/>Search on Google Maps
+                </a>
               </div>
             ) : (
-              <EmbedMap
-                locations={mapLocs}
-                title={`Hotels in ${dest}`}
-                height={320}
-              />
+              <div className="mb-4">
+                <EmbedMap
+                  locations={allMapLocs}
+                  title={`Hotels & attractions in ${dest}`}
+                  height={380}
+                  showList={true}
+                />
+                <p className="text-xs mt-2 px-1" style={{color:'var(--text-muted)'}}>
+                  🏨 Gold pins = hotels · 🏛 Blue pins = major attractions from your itinerary
+                </p>
+              </div>
             )
           })()}
 
@@ -974,6 +989,7 @@ export default function TripPage() {
   const [addingNote,setAddingNote] = useState(false)
   const [splits,setSplits] = useState<{from:string;to:string;amount:number}[]>([])
   const [removingMember,setRemovingMember] = useState<string|null>(null)
+  const [showSplitModal,setShowSplitModal] = useState(false)
 
   useEffect(() => {
     if (!authLoading && !user) router.replace('/')
@@ -1418,30 +1434,35 @@ export default function TripPage() {
                   </div>
                 )}
 
-                {/* Day map — shows all locations for this day */}
+                {/* Day map — shows ALL locations for this day with names */}
                 {(() => {
                   const dayLocs = (days[activeDay].slots || [])
-                    .filter((s:any) => s.lat && s.lng && s.lat !== 0)
-                    .map((s:any) => ({
+                    .filter((s:any) => s.lat && s.lng && Number(s.lat) !== 0 && Number(s.lng) !== 0)
+                    .map((s:any, idx:number) => ({
                       name: s.title,
-                      lat: s.lat,
-                      lng: s.lng,
-                      type: (s.type === 'meal' ? 'restaurant' : s.type === 'transport' ? 'transport' : 'attraction') as any,
-                      description: s.notes,
-                      distance: s.location,
+                      lat: Number(s.lat),
+                      lng: Number(s.lng),
+                      type: (s.type === 'meal' ? 'restaurant' : s.type === 'transport' ? 'transport' : 'activity') as any,
+                      description: `${s.time} · ${s.location}${s.notes ? ' — ' + s.notes.slice(0,80) : ''}`,
+                      distance: s.time,
                     }))
-                  return dayLocs.length >= 2 ? (
+                  return dayLocs.length > 0 ? (
                     <div className="mb-5">
                       <EmbedMap
                         locations={dayLocs}
-                        centerLat={dayLocs[0].lat}
-                        centerLng={dayLocs[0].lng}
-                        title={`Day ${days[activeDay].day} — ${days[activeDay].theme}`}
-                        height={280}
-                        zoom={13}
+                        title={`Day ${days[activeDay].day} map — ${days[activeDay].theme}`}
+                        height={320}
+                        showList={true}
                       />
                     </div>
-                  ) : null
+                  ) : (
+                    <div className="mb-4 glass rounded-xl p-3 flex items-center gap-2" style={{border:'1px solid var(--border)'}}>
+                      <MapPin className="w-4 h-4" style={{color:'var(--text-muted)'}}/>
+                      <p className="text-xs" style={{color:'var(--text-muted)'}}>
+                        Map will appear once your itinerary includes location coordinates.
+                      </p>
+                    </div>
+                  )
                 })()}
 
                 <div className="space-y-0 mb-5">
@@ -1862,6 +1883,16 @@ export default function TripPage() {
                     </span>
                   </div>
                 </div>
+              )}
+
+              {/* Split Bill Button */}
+              {expenses.length > 0 && (
+                <button
+                  onClick={() => setShowSplitModal(true)}
+                  className="btn-primary w-full flex items-center justify-center gap-2 mt-2">
+                  <span>💸</span>
+                  Split bill
+                </button>
               )}
 
               {/* SPLITWISE logic */}
