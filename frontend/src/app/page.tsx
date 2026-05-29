@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   Plane, MapPin, Globe, ArrowRight, Zap,
@@ -129,58 +129,7 @@ function useTypewriter(words: string[], speed = 80, pause = 1800) {
   return display
 }
 
-function UserMenu({ user, onSignOut, onHistory, onDiscover }: { user: { displayName: string | null; photoURL: string | null; email: string | null }; onSignOut: () => void; onHistory: () => void; onDiscover: () => void }) {
-  const [open, setOpen] = useState(false)
-  const ref = useRef<HTMLDivElement>(null)
-  useEffect(() => {
-    const handler = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false) }
-    document.addEventListener('mouseup', handler)
-    return () => document.removeEventListener('mouseup', handler)
-  }, [])
-  return (
-    <div className="relative" ref={ref}>
-      <button onClick={() => setOpen(!open)}
-        className="flex items-center gap-2 px-3 py-2 rounded-xl transition-all"
-        style={{ background: 'var(--bg-3)', border: '1px solid var(--border)' }}>
-        {user.photoURL
-          ? <img src={user.photoURL} alt="" className="w-7 h-7 rounded-full" referrerPolicy="no-referrer" />
-          : <div className="w-7 h-7 rounded-full flex items-center justify-center text-sm font-bold"
-            style={{ background: 'rgba(201,168,76,0.2)', color: 'var(--gold)' }}>
-            {user.displayName?.[0] || 'U'}
-          </div>
-        }
-        <span className="text-sm hidden md:block" style={{ color: 'var(--text-primary)' }}>
-          {user.displayName?.split(' ')[0]}
-        </span>
-      </button>
-      {open && (
-        <div className="absolute right-0 mt-2 w-56 glass rounded-xl overflow-hidden z-50"
-          style={{ boxShadow: '0 20px 60px rgba(0,0,0,0.5)' }}>
-          <div className="px-4 py-3" style={{ borderBottom: '1px solid var(--border)' }}>
-            <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>{user.displayName}</p>
-            <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>{user.email}</p>
-          </div>
-          <button onClick={(e) => { e.stopPropagation(); setOpen(false); onHistory() }}
-            className="w-full flex items-center gap-2 px-4 py-3 text-sm transition-all"
-            style={{ color: 'var(--text-secondary)' }}
-            onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg-3)')}
-            onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
-            <History className="w-4 h-4" />
-            My trips
-          </button>
-          <button onClick={(e) => { e.stopPropagation(); onSignOut() }}
-            className="w-full flex items-center gap-2 px-4 py-3 text-sm transition-all"
-            style={{ color: 'var(--text-secondary)', borderTop: '1px solid var(--border)' }}
-            onMouseEnter={e => (e.currentTarget.style.background = 'var(--bg-3)')}
-            onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
-            <LogOut className="w-4 h-4" />
-            Sign out
-          </button>
-        </div>
-      )}
-    </div>
-  )
-}
+
 
 export default function HomePage() {
   const router = useRouter()
@@ -366,32 +315,72 @@ export default function HomePage() {
           <span className="font-display text-2xl font-bold gradient-text">TripWise</span>
         </div>
 
-        {/* Nav links + Auth */}
-        <div className="flex items-center gap-3">
-          <button onClick={() => router.push('/discover')}
-            className="hidden md:flex items-center gap-2 text-sm px-4 py-2 rounded-xl transition-all"
-            style={{ background: 'rgba(201,168,76,0.08)', border: '1px solid rgba(201,168,76,0.2)', color: 'var(--gold-light)' }}
-            onMouseEnter={e => (e.currentTarget.style.background = 'rgba(201,168,76,0.15)')}
-            onMouseLeave={e => (e.currentTarget.style.background = 'rgba(201,168,76,0.08)')}>
-            <Sparkles className="w-3.5 h-3.5" />
-            Find a destination
-          </button>
-        <div>
+        {/* Right side nav — always flat buttons, no dropdowns */}
+        <div className="flex items-center gap-2">
           {authLoading ? (
-            <div className="w-9 h-9 rounded-full flex items-center justify-center"
-              style={{ background: 'var(--bg-3)', border: '1px solid var(--border)' }}>
-              <Loader2 className="w-4 h-4 animate-spin" style={{ color: 'var(--text-muted)' }} />
-            </div>
+            <Loader2 className="w-5 h-5 animate-spin" style={{ color: 'var(--text-muted)' }} />
           ) : user ? (
-            <UserMenu user={user} onSignOut={handleSignOut} onHistory={() => router.push('/history')} onDiscover={() => router.push('/discover')} />
+            <>
+              {/* Avatar + name — not clickable, just identity */}
+              <div className="hidden md:flex items-center gap-2 px-3 py-2 rounded-xl"
+                style={{ background: 'var(--bg-3)', border: '1px solid var(--border)' }}>
+                {user.photoURL
+                  ? <img src={user.photoURL} alt="" className="w-6 h-6 rounded-full" referrerPolicy="no-referrer" />
+                  : <div className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold"
+                      style={{ background: 'rgba(201,168,76,0.2)', color: 'var(--gold)' }}>
+                      {user.displayName?.[0] || 'U'}
+                    </div>
+                }
+                <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>
+                  {user.displayName?.split(' ')[0]}
+                </span>
+              </div>
+              {/* Flat clickable buttons */}
+              <button
+                onClick={() => router.push('/discover')}
+                className="flex items-center gap-1.5 text-sm px-3 py-2 rounded-xl transition-all"
+                style={{ background: 'var(--bg-3)', border: '1px solid var(--border)', color: 'var(--text-secondary)' }}
+                onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--gold)'; e.currentTarget.style.color = 'var(--gold-light)' }}
+                onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--text-secondary)' }}>
+                <Sparkles className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Discover</span>
+              </button>
+              <button
+                onClick={() => router.push('/history')}
+                className="flex items-center gap-1.5 text-sm px-3 py-2 rounded-xl transition-all"
+                style={{ background: 'var(--bg-3)', border: '1px solid var(--border)', color: 'var(--text-secondary)' }}
+                onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--gold)'; e.currentTarget.style.color = 'var(--gold-light)' }}
+                onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--text-secondary)' }}>
+                <History className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">My trips</span>
+              </button>
+              <button
+                onClick={handleSignOut}
+                className="flex items-center gap-1.5 text-sm px-3 py-2 rounded-xl transition-all"
+                style={{ background: 'var(--bg-3)', border: '1px solid var(--border)', color: 'var(--text-secondary)' }}
+                onMouseEnter={e => { e.currentTarget.style.borderColor = '#fb7185'; e.currentTarget.style.color = '#fb7185' }}
+                onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--text-secondary)' }}>
+                <LogOut className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Sign out</span>
+              </button>
+            </>
           ) : (
-            <button onClick={() => setShowAuthModal(true)}
-              className="flex items-center gap-2 btn-primary text-sm py-2.5 px-5">
-              <User className="w-4 h-4" />
-              Sign in
-            </button>
+            <>
+              <button onClick={() => router.push('/discover')}
+                className="hidden md:flex items-center gap-1.5 text-sm px-3 py-2 rounded-xl transition-all"
+                style={{ background: 'var(--bg-3)', border: '1px solid var(--border)', color: 'var(--text-secondary)' }}
+                onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--gold)'; e.currentTarget.style.color = 'var(--gold-light)' }}
+                onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--text-secondary)' }}>
+                <Sparkles className="w-3.5 h-3.5" />
+                Discover
+              </button>
+              <button onClick={() => setShowAuthModal(true)}
+                className="btn-primary flex items-center gap-2 text-sm py-2.5 px-5">
+                <User className="w-4 h-4" />
+                Sign in
+              </button>
+            </>
           )}
-        </div>
         </div>
       </nav>
 
