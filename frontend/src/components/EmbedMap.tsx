@@ -1,15 +1,20 @@
 'use client'
-import { useState, useEffect, useRef } from 'react'
-import { MapPin, ExternalLink, Navigation, ZoomIn, ZoomOut } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { MapPin, ExternalLink, Navigation, Home, Star, Train, Plane, Bus, Coffee, Landmark, Hotel, AlertCircle } from 'lucide-react'
 
 export interface MapLocation {
   name: string
   lat: number
   lng: number
-  type?: 'hotel' | 'attraction' | 'restaurant' | 'transport' | 'activity'
+  type?: 'hotel' | 'attraction' | 'restaurant' | 'transport' | 'activity' | 'airport' | 'transit' | 'bus'
   description?: string
   distance?: string
+  distanceFromAirport?: string
+  nearestTransit?: string
+  priceHint?: string
+  rating?: number
   isMain?: boolean
+  badge?: string   // e.g. "Cheapest" | "Closest to attractions" | "Best rated"
 }
 
 interface EmbedMapProps {
@@ -17,216 +22,258 @@ interface EmbedMapProps {
   height?: number
   title?: string
   showList?: boolean
+  splitScreen?: boolean       // default true — side-by-side on desktop
+  highlightIdx?: number       // pre-selected location
 }
 
-const TYPE_CONFIG: Record<string, { color: string; bg: string; icon: string; label: string }> = {
-  hotel:      { color: '#c9a84c', bg: 'rgba(201,168,76,0.15)',   icon: '🏨', label: 'Hotel' },
-  attraction: { color: '#3b82f6', bg: 'rgba(59,130,246,0.15)',   icon: '🏛',  label: 'Attraction' },
-  activity:   { color: '#3b82f6', bg: 'rgba(59,130,246,0.15)',   icon: '⭐',  label: 'Activity' },
-  restaurant: { color: '#f59e0b', bg: 'rgba(245,158,11,0.15)',   icon: '🍜',  label: 'Food' },
-  transport:  { color: '#a78bfa', bg: 'rgba(167,139,250,0.15)',  icon: '🚇',  label: 'Transport' },
+const TYPE_CONFIG: Record<string, { color: string; bg: string; border: string; icon: JSX.Element; emoji: string; label: string }> = {
+  hotel:      { color: '#c9a84c', bg: 'rgba(201,168,76,0.12)',  border: 'rgba(201,168,76,0.35)',  icon: <Home className="w-3.5 h-3.5"/>,     emoji: '🏠', label: 'Hotel' },
+  airport:    { color: '#a78bfa', bg: 'rgba(167,139,250,0.12)', border: 'rgba(167,139,250,0.35)', icon: <Plane className="w-3.5 h-3.5"/>,    emoji: '✈️',  label: 'Airport' },
+  transit:    { color: '#60a5fa', bg: 'rgba(96,165,250,0.12)',  border: 'rgba(96,165,250,0.35)',  icon: <Train className="w-3.5 h-3.5"/>,    emoji: '🚇', label: 'Metro/Rail' },
+  bus:        { color: '#34d399', bg: 'rgba(52,211,153,0.12)',  border: 'rgba(52,211,153,0.35)',  icon: <Bus className="w-3.5 h-3.5"/>,      emoji: '🚌', label: 'Bus' },
+  transport:  { color: '#a78bfa', bg: 'rgba(167,139,250,0.12)', border: 'rgba(167,139,250,0.35)', icon: <Train className="w-3.5 h-3.5"/>,    emoji: '🚇', label: 'Transit' },
+  attraction: { color: '#3b82f6', bg: 'rgba(59,130,246,0.12)',  border: 'rgba(59,130,246,0.35)',  icon: <Landmark className="w-3.5 h-3.5"/>, emoji: '🏛', label: 'Attraction' },
+  activity:   { color: '#f472b6', bg: 'rgba(244,114,182,0.12)', border: 'rgba(244,114,182,0.35)', icon: <Star className="w-3.5 h-3.5"/>,     emoji: '⭐', label: 'Activity' },
+  restaurant: { color: '#f59e0b', bg: 'rgba(245,158,11,0.12)',  border: 'rgba(245,158,11,0.35)',  icon: <Coffee className="w-3.5 h-3.5"/>,   emoji: '🍜', label: 'Food' },
+}
+const DEFAULT_CFG = TYPE_CONFIG.attraction
+
+function getConfig(type?: string) {
+  return TYPE_CONFIG[type || ''] || DEFAULT_CFG
 }
 
-// Build a Google Maps Static API URL with multiple colored markers
-function buildStaticMapUrl(locations: MapLocation[], zoom: number, w: number, h: number): string {
-  const validLocs = locations.filter(l => l.lat && l.lng)
-  if (validLocs.length === 0) return ''
-
-  const center = validLocs[0]
-  const scale = 2 // retina
-
-  // Color map for marker types
-  const typeColor: Record<string, string> = {
-    hotel: '0xc9a84c',
-    attraction: '0x3b82f6',
-    activity: '0x3b82f6',
-    restaurant: '0xf59e0b',
-    transport: '0xa78bfa',
+// Build OSM iframe src that fits all locations in bbox or focuses on one
+function buildOSMSrc(locations: MapLocation[], focusIdx: number | null): string {
+  const valid = locations.filter(l => l.lat && l.lng && l.lat !== 0 && l.lng !== 0)
+  if (!valid.length) return ''
+  if (focusIdx !== null && valid[focusIdx]) {
+    const l = valid[focusIdx]
+    const pad = 0.018
+    return `https://www.openstreetmap.org/export/embed.html?bbox=${l.lng-pad},${l.lat-pad},${l.lng+pad},${l.lat+pad}&layer=mapnik&marker=${l.lat},${l.lng}`
   }
-
-  const markers = validLocs.map((loc, i) => {
-    const color = typeColor[loc.type || 'attraction'] || '0x3b82f6'
-    const label = loc.isMain ? 'H' : String.fromCharCode(65 + i) // A, B, C...
-    return `markers=color:${color}%7Clabel:${label}%7C${loc.lat},${loc.lng}`
-  }).join('&')
-
-  // Use OpenStreetMap tiles via a free static map service (no key needed)
-  // We'll use the staticmap approach with Stamen tiles
-  const baseUrl = 'https://staticmap.openstreetmap.de/staticmap.php'
-  const markerStr = validLocs.map((loc, i) => 
-    `${loc.lat},${loc.lng},ol-marker-gold`
-  ).join('|')
-
-  // Actually use a reliable free service
-  const mapboxStyled = `https://api.mapbox.com/styles/v1/mapbox/dark-v11/static/`
-
-  // Best free option: use OpenStreetMap with a modern tile service via Leaflet-style static
-  // We'll render our own custom map using a canvas-based approach in the component
-  return `https://www.openstreetmap.org/export/embed.html?bbox=${center.lng - 0.04},${center.lat - 0.03},${center.lng + 0.04},${center.lat + 0.03}&layer=mapnik`
+  const lats = valid.map(l => l.lat), lngs = valid.map(l => l.lng)
+  const pad = 0.012
+  const bbox = `${Math.min(...lngs)-pad},${Math.min(...lats)-pad},${Math.max(...lngs)+pad},${Math.max(...lats)+pad}`
+  const marker = valid[0] ? `&marker=${valid[0].lat},${valid[0].lng}` : ''
+  return `https://www.openstreetmap.org/export/embed.html?bbox=${bbox}&layer=mapnik${marker}`
 }
 
-export default function EmbedMap({ locations, height = 380, title, showList = true }: EmbedMapProps) {
-  const [activeIdx, setActiveIdx] = useState<number | null>(null)
-  const [zoom, setZoom] = useState(14)
-  const mapRef = useRef<HTMLDivElement>(null)
+function buildGoogleUrl(locations: MapLocation[], focusIdx: number | null): string {
+  const valid = locations.filter(l => l.lat && l.lng)
+  if (!valid.length) return '#'
+  if (focusIdx !== null && valid[focusIdx]) {
+    const l = valid[focusIdx]
+    return `https://www.google.com/maps/search/?api=1&query=${l.lat},${l.lng}`
+  }
+  if (valid.length === 1) return `https://www.google.com/maps/search/?api=1&query=${valid[0].lat},${valid[0].lng}`
+  return `https://www.google.com/maps/dir/${valid.map(l => `${l.lat},${l.lng}`).join('/')}`
+}
 
-  const validLocs = locations.filter(l => l.lat && l.lng && l.lat !== 0 && l.lng !== 0)
-  if (validLocs.length === 0) return null
+// Group locations by type for the sidebar
+function groupByType(locations: MapLocation[]) {
+  const groups: Record<string, (MapLocation & { _idx: number })[]> = {}
+  locations.forEach((l, i) => {
+    const key = l.type || 'attraction'
+    if (!groups[key]) groups[key] = []
+    groups[key].push({ ...l, _idx: i })
+  })
+  return groups
+}
 
-  // Calculate bounding box for all locations
-  const lats = validLocs.map(l => l.lat)
-  const lngs = validLocs.map(l => l.lng)
-  const minLat = Math.min(...lats)
-  const maxLat = Math.max(...lats)
-  const minLng = Math.min(...lngs)
-  const maxLng = Math.max(...lngs)
+export default function EmbedMap({ locations, height = 420, title, showList = true, splitScreen = true, highlightIdx }: EmbedMapProps) {
+  const [activeIdx, setActiveIdx] = useState<number | null>(highlightIdx ?? null)
+  const [mapKey, setMapKey] = useState(0)
+  const [osmSrc, setOsmSrc] = useState('')
 
-  // Add padding
-  const pad = 0.008
-  const bbox = `${minLng - pad},${minLat - pad},${maxLng + pad},${maxLat + pad}`
+  const valid = locations.filter(l => l.lat && l.lng && l.lat !== 0 && l.lng !== 0)
 
-  // For single location, use marker
-  const activeOrFirst = activeIdx !== null ? validLocs[activeIdx] : validLocs[0]
+  useEffect(() => {
+    const src = buildOSMSrc(valid, activeIdx)
+    setOsmSrc(src)
+    setMapKey(k => k + 1)
+  }, [activeIdx, locations.length])
 
-  // Build OSM URL with all marker coordinates as a path
-  const markerParam = activeIdx !== null
-    ? `&marker=${validLocs[activeIdx].lat},${validLocs[activeIdx].lng}`
-    : `&marker=${validLocs[0].lat},${validLocs[0].lng}`
+  if (!valid.length) return null
 
-  const osmSrc = validLocs.length === 1
-    ? `https://www.openstreetmap.org/export/embed.html?bbox=${minLng-0.02},${minLat-0.02},${maxLng+0.02},${maxLat+0.02}&layer=mapnik&marker=${validLocs[0].lat},${validLocs[0].lng}`
-    : activeIdx !== null
-      ? `https://www.openstreetmap.org/export/embed.html?bbox=${validLocs[activeIdx].lng-0.02},${validLocs[activeIdx].lat-0.015},${validLocs[activeIdx].lng+0.02},${validLocs[activeIdx].lat+0.015}&layer=mapnik&marker=${validLocs[activeIdx].lat},${validLocs[activeIdx].lng}`
-      : `https://www.openstreetmap.org/export/embed.html?bbox=${bbox}&layer=mapnik${markerParam}`
+  const groups = groupByType(valid)
+  const googleUrl = buildGoogleUrl(valid, activeIdx)
+  const focused = activeIdx !== null ? valid[activeIdx] : null
 
-  // Google Maps link
-  const googleMapsUrl = validLocs.length === 1
-    ? `https://www.google.com/maps/search/?api=1&query=${validLocs[0].lat},${validLocs[0].lng}`
-    : `https://www.google.com/maps/dir/${validLocs.map(l => `${l.lat},${l.lng}`).join('/')}`
+  const typeOrder = ['hotel', 'airport', 'transit', 'bus', 'transport', 'attraction', 'activity', 'restaurant']
+  const sortedGroupKeys = Object.keys(groups).sort((a, b) => typeOrder.indexOf(a) - typeOrder.indexOf(b))
+
+  const mapHeight = splitScreen ? height : height
 
   return (
     <div className="rounded-2xl overflow-hidden" style={{ border: '1px solid rgba(201,168,76,0.2)', background: 'var(--bg-2)' }}>
 
       {/* Header */}
-      {title && (
-        <div className="px-4 py-3 flex items-center justify-between"
-          style={{ background: 'var(--bg-3)', borderBottom: '1px solid var(--border)' }}>
-          <div className="flex items-center gap-2">
-            <MapPin className="w-4 h-4" style={{ color: 'var(--gold)' }} />
-            <span className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>{title}</span>
-            <span className="text-xs" style={{ color: 'var(--text-muted)' }}>· {validLocs.length} location{validLocs.length !== 1 ? 's' : ''}</span>
-          </div>
-          <a href={googleMapsUrl} target="_blank" rel="noopener noreferrer"
-            className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg transition-all hover-lift"
+      <div className="px-4 py-3 flex items-center justify-between gap-3"
+        style={{ background: 'var(--bg-3)', borderBottom: '1px solid var(--border)' }}>
+        <div className="flex items-center gap-2 min-w-0">
+          <MapPin className="w-4 h-4 flex-shrink-0" style={{ color: 'var(--gold)' }} />
+          <span className="text-sm font-semibold truncate" style={{ color: 'var(--text-primary)' }}>
+            {title || 'Map'}
+          </span>
+          <span className="text-xs flex-shrink-0" style={{ color: 'var(--text-muted)' }}>
+            · {valid.length} pin{valid.length !== 1 ? 's' : ''}
+          </span>
+        </div>
+        <div className="flex items-center gap-2 flex-shrink-0">
+          {activeIdx !== null && (
+            <button onClick={() => setActiveIdx(null)}
+              className="text-xs px-2.5 py-1 rounded-lg transition-all"
+              style={{ background: 'var(--bg-4)', color: 'var(--text-muted)', border: '1px solid var(--border)' }}>
+              Show all
+            </button>
+          )}
+          <a href={googleUrl} target="_blank" rel="noopener noreferrer"
+            className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg transition-all"
             style={{ background: 'rgba(201,168,76,0.1)', border: '1px solid rgba(201,168,76,0.2)', color: 'var(--gold-light)' }}>
             <Navigation className="w-3 h-3" />
-            {validLocs.length > 1 ? 'Full route' : 'Navigate'}
+            {focused ? 'Directions' : 'Open map'}
           </a>
         </div>
-      )}
-
-      {/* PIN LEGEND — shown above map */}
-      <div className="px-4 py-2 flex flex-wrap gap-2"
-        style={{ background: 'var(--bg-3)', borderBottom: '1px solid var(--border)' }}>
-        {validLocs.map((loc, i) => {
-          const cfg = TYPE_CONFIG[loc.type || 'attraction']
-          return (
-            <button key={i}
-              onClick={() => setActiveIdx(activeIdx === i ? null : i)}
-              className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium transition-all"
-              style={{
-                background: activeIdx === i ? cfg.bg : 'var(--bg-4)',
-                border: `1px solid ${activeIdx === i ? cfg.color : 'var(--border)'}`,
-                color: activeIdx === i ? cfg.color : 'var(--text-secondary)',
-              }}>
-              <span>{cfg.icon}</span>
-              <span className="max-w-[120px] truncate">{loc.name}</span>
-            </button>
-          )
-        })}
-        {activeIdx !== null && (
-          <button onClick={() => setActiveIdx(null)}
-            className="flex items-center gap-1 px-2 py-1 rounded-full text-xs"
-            style={{ background: 'var(--bg-4)', color: 'var(--text-muted)' }}>
-            Show all
-          </button>
-        )}
       </div>
 
-      {/* Map iframe */}
-      <div className="relative" style={{ height }} ref={mapRef}>
-        <iframe
-          key={osmSrc} // force reload on src change
-          src={osmSrc}
-          style={{ width: '100%', height: '100%', border: 'none', display: 'block' }}
-          title={title || 'Map'}
-          loading="lazy"
-          sandbox="allow-scripts allow-same-origin"
-        />
-        {/* Subtle dark vignette */}
-        <div className="absolute inset-0 pointer-events-none rounded-none"
-          style={{
-            boxShadow: 'inset 0 0 40px rgba(6,9,18,0.25)',
-          }} />
-      </div>
+      {/* SPLIT SCREEN BODY */}
+      <div className={splitScreen ? 'flex flex-col md:flex-row' : 'flex flex-col'} style={{ minHeight: mapHeight }}>
 
-      {/* Location cards list */}
-      {showList && (
-        <div className="p-3" style={{ background: 'var(--bg-2)' }}>
-          <div className="space-y-2">
-            {validLocs.map((loc, i) => {
-              const cfg = TYPE_CONFIG[loc.type || 'attraction']
-              const isActive = activeIdx === i
+        {/* LEFT: Map iframe — takes 60% on desktop */}
+        <div className="relative" style={{ flex: splitScreen ? '0 0 60%' : '1', minHeight: mapHeight, maxWidth: splitScreen ? '60%' : '100%' }}>
+          {osmSrc ? (
+            <iframe
+              key={mapKey}
+              src={osmSrc}
+              style={{ width: '100%', height: mapHeight, border: 'none', display: 'block' }}
+              title={title || 'Map'}
+              loading="lazy"
+              sandbox="allow-scripts allow-same-origin"
+            />
+          ) : (
+            <div className="flex items-center justify-center h-full" style={{ height: mapHeight, background: 'var(--bg-3)' }}>
+              <div className="text-center">
+                <AlertCircle className="w-8 h-8 mx-auto mb-2" style={{ color: 'var(--text-muted)' }} />
+                <p className="text-sm" style={{ color: 'var(--text-muted)' }}>No location data available</p>
+              </div>
+            </div>
+          )}
+          {/* Vignette */}
+          <div className="absolute inset-0 pointer-events-none" style={{ boxShadow: 'inset 0 0 30px rgba(6,9,18,0.2)' }} />
+          {/* Active location overlay badge */}
+          {focused && (
+            <div className="absolute bottom-3 left-3 right-3 pointer-events-none">
+              <div className="rounded-xl px-3 py-2 flex items-center gap-2"
+                style={{ background: 'rgba(6,9,18,0.82)', backdropFilter: 'blur(8px)', border: '1px solid rgba(255,255,255,0.08)' }}>
+                <span className="text-base">{getConfig(focused.type).emoji}</span>
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-semibold truncate" style={{ color: 'white' }}>{focused.name}</p>
+                  {focused.description && <p className="text-xs truncate" style={{ color: 'rgba(255,255,255,0.55)' }}>{focused.description}</p>}
+                </div>
+                {focused.badge && (
+                  <span className="text-xs px-2 py-0.5 rounded-full flex-shrink-0 font-medium"
+                    style={{ background: 'rgba(201,168,76,0.25)', color: '#c9a84c' }}>{focused.badge}</span>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* RIGHT: Sidebar — 40% on desktop, scrollable */}
+        {showList && (
+          <div className="overflow-y-auto" style={{
+            flex: splitScreen ? '0 0 40%' : '1',
+            maxHeight: mapHeight,
+            borderLeft: splitScreen ? '1px solid var(--border)' : 'none',
+            borderTop: splitScreen ? 'none' : '1px solid var(--border)',
+            background: 'var(--bg-2)',
+          }}>
+            {sortedGroupKeys.map(typeKey => {
+              const cfg = getConfig(typeKey)
+              const items = groups[typeKey]
               return (
-                <button key={i}
-                  onClick={() => setActiveIdx(isActive ? null : i)}
-                  className="w-full flex items-center gap-3 p-3 rounded-xl text-left transition-all hover-lift"
-                  style={{
-                    background: isActive ? cfg.bg : 'var(--bg-3)',
-                    border: `1px solid ${isActive ? cfg.color : 'var(--border)'}`,
-                  }}>
-                  {/* Letter badge */}
-                  <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 font-bold text-xs"
-                    style={{
-                      background: cfg.bg,
-                      color: cfg.color,
-                      border: `1px solid ${cfg.color}40`,
-                    }}>
-                    {loc.isMain ? cfg.icon : String.fromCharCode(65 + i)}
-                  </div>
-
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold truncate" style={{ color: 'var(--text-primary)' }}>
-                      {loc.name}
-                    </p>
-                    {loc.distance && (
-                      <p className="text-xs" style={{ color: 'var(--text-muted)' }}>{loc.distance}</p>
-                    )}
-                    {isActive && loc.description && (
-                      <p className="text-xs mt-1" style={{ color: 'var(--text-secondary)' }}>{loc.description}</p>
-                    )}
-                  </div>
-
-                  <div className="flex items-center gap-2 flex-shrink-0">
-                    <span className="text-xs px-2 py-0.5 rounded-full"
-                      style={{ background: cfg.bg, color: cfg.color }}>
-                      {cfg.label}
+                <div key={typeKey}>
+                  {/* Type group header */}
+                  <div className="sticky top-0 z-10 px-3 py-2 flex items-center gap-2"
+                    style={{ background: 'var(--bg-3)', borderBottom: '1px solid var(--border)' }}>
+                    <span className="text-sm">{cfg.emoji}</span>
+                    <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: cfg.color }}>
+                      {cfg.label}s ({items.length})
                     </span>
-                    <a href={`https://www.google.com/maps/dir/?api=1&destination=${loc.lat},${loc.lng}`}
-                      target="_blank" rel="noopener noreferrer"
-                      onClick={e => e.stopPropagation()}
-                      className="p-1.5 rounded-lg transition-all"
-                      style={{ background: 'var(--bg-4)', color: 'var(--text-muted)' }}
-                      title="Get directions">
-                      <Navigation className="w-3 h-3" />
-                    </a>
                   </div>
-                </button>
+                  {/* Items */}
+                  <div className="p-2 space-y-1">
+                    {items.map((loc) => {
+                      const isActive = activeIdx === loc._idx
+                      return (
+                        <button key={loc._idx}
+                          onClick={() => setActiveIdx(isActive ? null : loc._idx)}
+                          className="w-full text-left p-3 rounded-xl transition-all"
+                          style={{
+                            background: isActive ? cfg.bg : 'transparent',
+                            border: `1px solid ${isActive ? cfg.border : 'transparent'}`,
+                          }}>
+                          <div className="flex items-start gap-2.5">
+                            {/* Icon badge */}
+                            <div className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5"
+                              style={{ background: cfg.bg, color: cfg.color, border: `1px solid ${cfg.border}` }}>
+                              {cfg.icon}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <p className="text-xs font-semibold" style={{ color: 'var(--text-primary)' }}>{loc.name}</p>
+                                {loc.badge && (
+                                  <span className="text-xs px-1.5 py-0.5 rounded font-medium"
+                                    style={{ background: 'rgba(201,168,76,0.15)', color: '#c9a84c', fontSize: '10px' }}>
+                                    {loc.badge}
+                                  </span>
+                                )}
+                              </div>
+                              {loc.distance && (
+                                <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>{loc.distance}</p>
+                              )}
+                              {loc.distanceFromAirport && (
+                                <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                                  <span style={{ color: '#a78bfa' }}>✈ </span>{loc.distanceFromAirport} from airport
+                                </p>
+                              )}
+                              {loc.nearestTransit && (
+                                <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                                  <span style={{ color: '#60a5fa' }}>🚇 </span>{loc.nearestTransit}
+                                </p>
+                              )}
+                              {loc.priceHint && (
+                                <p className="text-xs font-medium mt-0.5" style={{ color: '#c9a84c' }}>{loc.priceHint}</p>
+                              )}
+                              {loc.rating && (
+                                <div className="flex items-center gap-1 mt-0.5">
+                                  <Star className="w-2.5 h-2.5" style={{ color: '#f59e0b' }} />
+                                  <span className="text-xs" style={{ color: '#f59e0b' }}>{loc.rating}</span>
+                                </div>
+                              )}
+                              {isActive && loc.description && (
+                                <p className="text-xs mt-1 leading-relaxed" style={{ color: 'var(--text-secondary)' }}>{loc.description}</p>
+                              )}
+                            </div>
+                            <a href={`https://www.google.com/maps/dir/?api=1&destination=${loc.lat},${loc.lng}`}
+                              target="_blank" rel="noopener noreferrer"
+                              onClick={e => e.stopPropagation()}
+                              className="p-1.5 rounded-lg flex-shrink-0 opacity-60 hover:opacity-100 transition-opacity"
+                              style={{ background: 'var(--bg-4)', color: 'var(--text-muted)' }}
+                              title="Get directions">
+                              <Navigation className="w-3 h-3" />
+                            </a>
+                          </div>
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
               )
             })}
           </div>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   )
 }

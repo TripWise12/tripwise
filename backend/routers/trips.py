@@ -78,7 +78,16 @@ async def create_trip(trip: TripCreate):
     }
     try:
         result = supabase.table("trips").insert(data).execute()
-        return result.data[0]
+        created = result.data[0]
+        # Auto-add the creator as a member so splits/notes are consistent
+        supabase.table("trip_members").insert({
+            "trip_id":    created["id"],
+            "user_id":    trip.user_id,
+            "user_email": trip.user_email or "",
+            "user_name":  trip.user_name or "",
+            "role":       "owner",
+        }).execute()
+        return created
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -89,14 +98,40 @@ async def get_user_history(user_id: str):
     if not supabase:
         return []
     try:
-        result = (
+        # Trips the user CREATED
+        owned = (
             supabase.table("trips")
             .select("id, title, destination, origin, start_date, end_date, status, created_at, group_size, budget_usd, invite_code")
             .eq("user_id", user_id)
             .order("created_at", desc=True)
             .execute()
         )
-        return result.data
+        owned_ids = {t["id"] for t in (owned.data or [])}
+
+        # Trips the user JOINED via invite
+        memberships = (
+            supabase.table("trip_members")
+            .select("trip_id")
+            .eq("user_id", user_id)
+            .execute()
+        )
+        joined_ids = [m["trip_id"] for m in (memberships.data or []) if m["trip_id"] not in owned_ids]
+
+        joined_trips = []
+        if joined_ids:
+            joined = (
+                supabase.table("trips")
+                .select("id, title, destination, origin, start_date, end_date, status, created_at, group_size, budget_usd, invite_code")
+                .in_("id", joined_ids)
+                .order("created_at", desc=True)
+                .execute()
+            )
+            joined_trips = joined.data or []
+
+        # Merge and sort by created_at descending
+        all_trips = (owned.data or []) + joined_trips
+        all_trips.sort(key=lambda t: t.get("created_at", ""), reverse=True)
+        return all_trips
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

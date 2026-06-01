@@ -9,13 +9,14 @@ import {
   Package, Bookmark, Phone, Edit3, Share2, Utensils, Car,
   Hotel, ArrowRight, X, Loader2, RefreshCw, Plus, Info,
   Zap, Star, AlertTriangle, Sun, CloudRain, Wind,
-  Calendar, Music, Flag, Download, ExternalLink, Lightbulb
+  Calendar, Music, Flag, Download, ExternalLink, Lightbulb,
+  Train, Bus, Landmark, Coffee, Home, Navigation
 } from 'lucide-react'
 import { useAuth } from '@/context/AuthContext'
 import EmbedMap from '@/components/EmbedMap'
 
 const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
-const TABS = ['Overview','Itinerary','Flights','Hotels','Packing','Budget','Group']
+const TABS = ['Overview','Itinerary','Transport','Hotels','Packing','Budget','Group']
 
 function HotelsTab({tripData,itinerary}:{tripData:Record<string,unknown>,itinerary:any}) {
   const [hotels,setHotels] = useState<Record<string,unknown>|null>(null)
@@ -160,28 +161,43 @@ function HotelsTab({tripData,itinerary}:{tripData:Record<string,unknown>,itinera
             </div>
           )}
 
-          {/* Hotels map — hotels as gold pins + major itinerary attractions as blue pins */}
+          {/* Hotels map — split screen: hotels + nearest transit + attractions */}
           {filtered.length > 0 && (() => {
             const dest = (tripData.destination || itinerary?.destination || '') as string
 
-            // Hotel locations
-            const hotelLocs = filtered.slice(0,6)
+            // Hotel locations with full metadata
+            const hotelLocs = filtered.slice(0,8)
               .filter((h:any) => h.lat && h.lng && Number(h.lat) !== 0)
-              .map((h:any) => ({
+              .map((h:any,idx:number) => ({
                 name: h.name,
                 lat: Number(h.lat),
                 lng: Number(h.lng),
                 type: 'hotel' as const,
                 isMain: true,
-                description: `★ ${h.rating}/10 · ${h.distance_to_center} · $${h.price_per_night_usd}/night`,
-                distance: h.distance_to_main_attraction || h.distance_to_center,
+                badge: idx===0?'Best rated':idx===1&&filtered[0]?.price_per_night_usd>filtered[1]?.price_per_night_usd?'Cheapest':undefined,
+                description: `$${h.price_per_night_usd}/night · ★ ${h.rating}/10`,
+                distance: h.distance_to_center,
+                distanceFromAirport: h.distance_from_airport,
+                nearestTransit: h.nearest_transit||h.nearest_metro,
+                priceHint: `$${h.price_per_night_usd}/night`,
+                rating: h.rating,
               }))
 
-            // Pull top attractions from itinerary day 1-2 as context
+            // Nearest transit hubs if available from hotels data
+            const transitLocs = ((hotels?.transit_hubs as any[])||[]).slice(0,3).map((t:any)=>({
+              name: t.name,
+              lat: Number(t.lat),
+              lng: Number(t.lng),
+              type: 'transit' as const,
+              description: t.lines||t.description,
+              distance: t.distance_from_center,
+            }))
+
+            // Top attractions from itinerary
             const attractionLocs = (itinerary?.days || []).slice(0, 2)
               .flatMap((d:any) => (d.slots || []))
               .filter((s:any) => s.lat && s.lng && Number(s.lat) !== 0 && s.type !== 'transport')
-              .slice(0, 4)
+              .slice(0, 5)
               .map((s:any) => ({
                 name: s.title,
                 lat: Number(s.lat),
@@ -190,14 +206,12 @@ function HotelsTab({tripData,itinerary}:{tripData:Record<string,unknown>,itinera
                 description: s.location,
               }))
 
-            const allMapLocs = [...hotelLocs, ...attractionLocs]
+            const allMapLocs = [...hotelLocs, ...transitLocs, ...attractionLocs]
 
             return allMapLocs.length === 0 ? (
               <div className="glass rounded-2xl p-4 mb-4 text-center">
                 <MapPin className="w-8 h-8 mx-auto mb-2" style={{color:'var(--text-muted)'}}/>
-                <p className="text-sm" style={{color:'var(--text-muted)'}}>
-                  Map loads once hotels have location data
-                </p>
+                <p className="text-sm" style={{color:'var(--text-muted)'}}>Map loads once hotels have location data</p>
                 <a href={`https://www.google.com/maps/search/hotels+in+${encodeURIComponent(dest)}`}
                   target="_blank" rel="noopener noreferrer"
                   className="text-xs mt-2 inline-flex items-center gap-1" style={{color:'var(--gold-light)'}}>
@@ -208,13 +222,11 @@ function HotelsTab({tripData,itinerary}:{tripData:Record<string,unknown>,itinera
               <div className="mb-4">
                 <EmbedMap
                   locations={allMapLocs}
-                  title={`Hotels & attractions in ${dest}`}
-                  height={380}
+                  title={`Hotels, transit & attractions — ${dest}`}
+                  height={420}
                   showList={true}
+                  splitScreen={true}
                 />
-                <p className="text-xs mt-2 px-1" style={{color:'var(--text-muted)'}}>
-                  🏨 Gold pins = hotels · 🏛 Blue pins = major attractions from your itinerary
-                </p>
               </div>
             )
           })()}
@@ -337,25 +349,48 @@ function HotelsTab({tripData,itinerary}:{tripData:Record<string,unknown>,itinera
             </div>
           ))}
 
-          {/* Platform comparison */}
-          {platforms.length>0&&(
-            <div className="glass rounded-xl p-5">
-              <p className="section-label mb-3">Compare all hotels on</p>
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                {platforms.map((p:any,i:number)=>(
-                  <a key={i} href={p.url} target="_blank" rel="noopener noreferrer"
-                    className="flex items-center justify-between p-3 rounded-xl hover-lift"
-                    style={{background:'var(--bg-3)',border:'1px solid var(--border)'}}>
-                    <div>
-                      <p className="text-sm font-semibold" style={{color:'var(--text-primary)'}}>{p.name}</p>
-                      <p className="text-xs" style={{color:'var(--text-muted)'}}>{p.best_for}</p>
-                    </div>
-                    <ExternalLink className="w-4 h-4" style={{color:'var(--text-muted)'}}/>
-                  </a>
-                ))}
+          {/* Platform comparison — always shown, intelligently annotated */}
+          {(() => {
+            const dest = (tripData.destination || itinerary?.destination || '') as string
+            const checkin = String(tripData.start_date||'')
+            const checkout = String(tripData.end_date||'')
+            const guests = Number(tripData.adults||tripData.group_size||2)
+            const defaultPlatforms = [
+              {name:'Booking.com',  note:'Largest inventory, free cancellation', best_for:'Most choice',  color:'rgba(0,100,200,0.1)', border:'rgba(0,100,200,0.25)', url:`https://www.booking.com/searchresults.html?ss=${encodeURIComponent(dest)}&checkin=${checkin}&checkout=${checkout}&group_adults=${guests}`},
+              {name:'Agoda',        note:'Best for Asia, loyalty discounts',      best_for:'Asia deals',   color:'rgba(220,40,40,0.1)',  border:'rgba(220,40,40,0.25)', url:`https://www.agoda.com/search?city=${encodeURIComponent(dest)}&checkIn=${checkin}&checkOut=${checkout}&adults=${guests}`},
+              {name:'Hotels.com',   note:'10 nights = 1 free night rewards',     best_for:'Rewards',      color:'rgba(200,60,0,0.1)',   border:'rgba(200,60,0,0.25)', url:`https://www.hotels.com/search.do?q-destination=${encodeURIComponent(dest)}&q-check-in=${checkin}&q-check-out=${checkout}&q-rooms=1&q-room-0-adults=${guests}`},
+              {name:'Expedia',      note:'Bundle with flights to save 15%+',     best_for:'Flight bundle',color:'rgba(0,170,240,0.1)',  border:'rgba(0,170,240,0.25)', url:`https://www.expedia.com/Hotel-Search?destination=${encodeURIComponent(dest)}&startDate=${checkin}&endDate=${checkout}&adults=${guests}`},
+              {name:'Hostelworld',  note:'Best budget & hostel options',          best_for:'Budget',       color:'rgba(100,180,60,0.1)', border:'rgba(100,180,60,0.25)', url:`https://www.hostelworld.com/search?search_keywords=${encodeURIComponent(dest)}&dateFrom=${checkin}&dateTo=${checkout}&number_of_guests=${guests}`},
+              {name:'Direct',       note:'Book hotel site directly — often cheaper', best_for:'No fees', color:'rgba(201,168,76,0.1)', border:'rgba(201,168,76,0.25)', url:`https://www.google.com/search?q=hotels+in+${encodeURIComponent(dest)}+official+website`},
+            ]
+            const toShow = platforms.length > 0 ? platforms : defaultPlatforms
+            return (
+              <div className="glass rounded-xl p-5">
+                <div className="flex items-center justify-between mb-3">
+                  <p className="section-label">📊 Where to book · cheapest first</p>
+                  <span className="text-xs px-2 py-0.5 rounded" style={{background:'rgba(45,212,160,0.1)',color:'#2dd4a0'}}>
+                    Compare before booking
+                  </span>
+                </div>
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                  {toShow.map((p:any,i:number)=>(
+                    <a key={i} href={p.url} target="_blank" rel="noopener noreferrer"
+                      className="flex items-center justify-between p-3 rounded-xl hover-lift"
+                      style={{background:p.color||'var(--bg-3)',border:`1px solid ${p.border||'var(--border)'}`}}>
+                      <div className="min-w-0">
+                        <p className="text-xs font-semibold truncate" style={{color:'var(--text-primary)'}}>{p.name}</p>
+                        <p className="text-xs truncate" style={{color:'var(--text-muted)'}}>{p.note||p.best_for||''}</p>
+                      </div>
+                      <ExternalLink className="w-3.5 h-3.5 ml-1 flex-shrink-0" style={{color:'var(--text-muted)'}}/>
+                    </a>
+                  ))}
+                </div>
+                <p className="text-xs mt-3" style={{color:'var(--text-muted)'}}>
+                  💡 Pro tip: Check 2-3 platforms + the hotel's own website. Direct booking often beats OTAs by 5-15%.
+                </p>
               </div>
-            </div>
-          )}
+            )
+          })()}
 
           {(hotels.booking_tips as string[]||[]).length>0&&(
             <div className="glass-gold rounded-xl p-4">
@@ -535,63 +570,118 @@ function exportToExcel(itinerary:Itinerary, viability:Viability, tripData:Record
   a.click(); URL.revokeObjectURL(url)
 }
 
-function FlightsTab({tripData}:{tripData:Record<string,unknown>}) {
-  const [flights,setFlights] = useState<Record<string,unknown>|null>(null)
-  const [transport,setTransport] = useState<Record<string,unknown>|null>(null)
-  const [loadingF,setLoadingF] = useState(false)
-  const [loadingT,setLoadingT] = useState(false)
-  const [activeMode,setActiveMode] = useState<'flights'|'all'>('all')
+function TransportTab({tripData}:{tripData:Record<string,unknown>}) {
+  const [subTab, setSubTab] = useState<'getting-there'|'local-travel'>('getting-there')
+  const [transport, setTransport] = useState<Record<string,unknown>|null>(null)
+  const [flights, setFlights]     = useState<Record<string,unknown>|null>(null)
+  const [loadingT, setLoadingT]   = useState(false)
+  const [loadingF, setLoadingF]   = useState(false)
 
-  async function searchFlights() {
-    setLoadingF(true)
-    try {
-      const res = await fetch(`${API}/api/flights`,{method:'POST',headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({origin:tripData.origin,destination:tripData.destination,
-          departure_date:tripData.start_date,return_date:tripData.end_date,adults:tripData.group_size})})
-      if(res.ok) setFlights(await res.json())
-    } catch(e){console.error(e)} finally{setLoadingF(false)}
-  }
+  const orig = String(tripData.origin||'').split(',')[0].trim()
+  const dest = String(tripData.destination||'').split(',')[0].trim()
+  const dep  = String(tripData.start_date||'').replace(/-/g,'')
+  const ret  = String(tripData.end_date||'').replace(/-/g,'')
+  const adults = Number(tripData.group_size||1)
 
-  async function searchTransport() {
+  async function loadTransport() {
     setLoadingT(true)
     try {
       const res = await fetch(`${API}/api/transport`,{method:'POST',headers:{'Content-Type':'application/json'},
         body:JSON.stringify({origin:tripData.origin,destination:tripData.destination,
           departure_date:tripData.start_date,return_date:tripData.end_date,adults:tripData.group_size})})
       if(res.ok) setTransport(await res.json())
-    } catch(e){console.error(e)} finally{setLoadingT(false)}
+    }catch(e){console.error(e)}finally{setLoadingT(false)}
   }
 
-  const flightResults = (flights?.results as Record<string,unknown>[])||[]
-  const transportOptions = (transport?.options as Record<string,unknown>[])||[]
-  const localT = transport?.local_transport_at_destination as Record<string,unknown>|undefined
+  async function loadFlights() {
+    setLoadingF(true)
+    try {
+      const res = await fetch(`${API}/api/flights`,{method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({origin:tripData.origin,destination:tripData.destination,
+          departure_date:tripData.start_date,return_date:tripData.end_date,adults:tripData.group_size})})
+      if(res.ok) setFlights(await res.json())
+    }catch(e){console.error(e)}finally{setLoadingF(false)}
+  }
+
+  const transportOptions = (transport?.options as any[])||[]
+  const localT = transport?.local_transport_at_destination as any
+  const flightResults = (flights?.results as any[])||[]
+
+  // Determine cheapest + fastest from transport options
+  const available = transportOptions.filter((o:any)=>o.available!==false)
+  const cheapest  = available.reduce((best:any,o:any)=>(!best||o.price_from_usd<best.price_from_usd)?o:best, null)
+  const fastest   = available.reduce((best:any,o:any)=>{
+    const mins = (s:string)=>{const m=s?.match(/(\d+)h\s*(\d+)?m?/);return m?Number(m[1])*60+Number(m[2]||0):9999}
+    return(!best||mins(o.duration)<mins(best.duration))?o:best
+  }, null)
+
+  // Build booking platform URLs for flights
+  const flightPlatforms = [
+    {name:'Skyscanner',  note:'Best overall',         color:'rgba(0,134,195,0.1)', border:'rgba(0,134,195,0.25)',  url:`https://www.skyscanner.com/transport/flights/${orig.toLowerCase().replace(/\s/g,'')}/${dest.toLowerCase().replace(/\s/g,'')}/${dep}/${ret}/?adults=${adults}`},
+    {name:'Google Flights', note:'Price alerts',      color:'rgba(66,133,244,0.1)', border:'rgba(66,133,244,0.25)', url:`https://flights.google.com/search?q=flights+from+${encodeURIComponent(orig)}+to+${encodeURIComponent(dest)}`},
+    {name:'Kiwi.com',    note:'Cheapest multi-stop',  color:'rgba(0,200,150,0.1)', border:'rgba(0,200,150,0.25)',  url:`https://www.kiwi.com/en/search/results/${orig.toLowerCase()}/${dest.toLowerCase()}/${dep}/${ret}`},
+    {name:'Kayak',       note:'Flexible dates',       color:'rgba(255,111,0,0.1)', border:'rgba(255,111,0,0.25)', url:`https://www.kayak.com/flights/${orig.replace(/\s/g,'-')}-${dest.replace(/\s/g,'-')}/${dep}/${ret}/${adults}adults`},
+    {name:'Momondo',     note:'Hidden deals',         color:'rgba(255,87,34,0.1)', border:'rgba(255,87,34,0.25)', url:`https://www.momondo.com/flight-search/${orig}/${dest}/${dep}/${ret}`},
+    {name:'Expedia',     note:'Bundle + hotel',       color:'rgba(0,170,240,0.1)', border:'rgba(0,170,240,0.25)', url:`https://www.expedia.com/Flights-Search?trip=roundtrip&leg1=from:${orig},to:${dest},departure:${dep}`},
+  ]
 
   return (
     <div className="space-y-4">
-      {/* Mode tabs */}
-      <div className="flex gap-2">
-        {(['all','flights'] as const).map(mode=>(
-          <button key={mode} onClick={()=>setActiveMode(mode)}
-            className={`day-tab ${activeMode===mode?'active':''}`}>
-            {mode==='all'?'🚌 All transport':'✈️ Flights only'}
+      {/* Sub-tab switcher */}
+      <div className="flex gap-2 p-1 rounded-xl" style={{background:'var(--bg-3)', border:'1px solid var(--border)'}}>
+        {([['getting-there','🛫 How to Get There'], ['local-travel','🚇 Local Travel']] as const).map(([key,label])=>(
+          <button key={key} onClick={()=>setSubTab(key)}
+            className="flex-1 py-2.5 px-4 rounded-lg text-sm font-medium transition-all"
+            style={{
+              background: subTab===key ? 'var(--bg-1)' : 'transparent',
+              color: subTab===key ? 'var(--text-primary)' : 'var(--text-muted)',
+              boxShadow: subTab===key ? '0 1px 4px rgba(0,0,0,0.3)' : 'none',
+            }}>
+            {label}
           </button>
         ))}
       </div>
 
-      {/* ALL TRANSPORT */}
-      {activeMode==='all'&&(
+      {/* ───────────── HOW TO GET THERE ───────────── */}
+      {subTab==='getting-there'&&(
         <div className="space-y-4">
+          {/* Intelligence banner: cheapest + fastest */}
+          {(cheapest||fastest)&&(
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {cheapest&&(
+                <div className="rounded-xl p-4 flex items-start gap-3"
+                  style={{background:'rgba(45,212,160,0.06)',border:'1px solid rgba(45,212,160,0.2)'}}>
+                  <span className="text-2xl">💰</span>
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-wider mb-0.5" style={{color:'#2dd4a0'}}>Cheapest Route</p>
+                    <p className="text-sm font-semibold" style={{color:'var(--text-primary)'}}>{cheapest.title}</p>
+                    <p className="text-xs" style={{color:'var(--text-muted)'}}>From <span style={{color:'#2dd4a0'}}>${cheapest.price_from_usd}</span> · {cheapest.duration}</p>
+                  </div>
+                </div>
+              )}
+              {fastest&&fastest!==cheapest&&(
+                <div className="rounded-xl p-4 flex items-start gap-3"
+                  style={{background:'rgba(96,165,250,0.06)',border:'1px solid rgba(96,165,250,0.2)'}}>
+                  <span className="text-2xl">⚡</span>
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-wider mb-0.5" style={{color:'#60a5fa'}}>Fastest Route</p>
+                    <p className="text-sm font-semibold" style={{color:'var(--text-primary)'}}>{fastest.title}</p>
+                    <p className="text-xs" style={{color:'var(--text-muted)'}}>From <span style={{color:'#60a5fa'}}>${fastest.price_from_usd}</span> · {fastest.duration}</p>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
           {!transport&&!loadingT&&(
             <div className="glass rounded-2xl p-10 text-center">
-              <div className="text-4xl mb-3">🗺️</div>
-              <h3 className="font-display text-xl font-bold mb-2" style={{color:'var(--text-primary)'}}>
-                Compare all ways to get there
-              </h3>
+              <div className="text-5xl mb-4">🗺️</div>
+              <h3 className="font-display text-xl font-bold mb-2" style={{color:'var(--text-primary)'}}>All ways to get from {orig} → {dest}</h3>
               <p className="text-sm mb-6" style={{color:'var(--text-secondary)'}}>
-                Flights, trains, buses, road trip — with local transport guide at destination
+                Flights, trains, buses, road trips — compared by price, speed, and comfort. We'll tell you the cheapest platform to book from.
               </p>
-              <button className="btn-primary flex items-center gap-2 mx-auto" onClick={searchTransport}>
-                <Zap className="w-4 h-4"/>Find all options
+              <button className="btn-primary flex items-center gap-2 mx-auto" onClick={loadTransport}>
+                <Zap className="w-4 h-4"/>Compare all options
               </button>
             </div>
           )}
@@ -614,100 +704,113 @@ function FlightsTab({tripData}:{tripData:Record<string,unknown>}) {
           )}
 
           {transport&&!loadingT&&(
-            <div className="space-y-4">
+            <div className="space-y-3">
               {transport.recommended_reason&&(
                 <div className="glass-gold rounded-xl p-4">
                   <div className="flex items-center gap-2">
-                    <Info className="w-4 h-4" style={{color:'var(--gold)'}}/>
+                    <Info className="w-4 h-4 flex-shrink-0" style={{color:'var(--gold)'}}/>
                     <p className="text-sm" style={{color:'var(--gold-light)'}}>{transport.recommended_reason as string}</p>
                   </div>
                 </div>
               )}
 
-              {transportOptions.filter((o:any)=>o.available!==false).map((opt:any,i:number)=>(
-                <div key={i} className="glass feature-card rounded-2xl p-5">
-                  <div className="flex items-start justify-between gap-4 flex-wrap">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-2">
-                        <span className="text-2xl">{opt.mode_icon}</span>
-                        <span className="font-semibold" style={{color:'var(--text-primary)'}}>{opt.title}</span>
-                        {opt.badge&&<span className="badge badge-gold">{opt.badge}</span>}
+              {/* Transport option cards */}
+              {available.map((opt:any,i:number)=>{
+                const isCheapest = opt===cheapest
+                const isFastest  = opt===fastest&&opt!==cheapest
+                return (
+                  <div key={i} className="glass feature-card rounded-2xl p-5">
+                    <div className="flex items-start justify-between gap-4 flex-wrap">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-2 flex-wrap">
+                          <span className="text-2xl">{opt.mode_icon}</span>
+                          <span className="font-semibold" style={{color:'var(--text-primary)'}}>{opt.title}</span>
+                          {isCheapest&&<span className="badge" style={{background:'rgba(45,212,160,0.15)',color:'#2dd4a0',border:'1px solid rgba(45,212,160,0.3)'}}>💰 Cheapest</span>}
+                          {isFastest&&<span className="badge" style={{background:'rgba(96,165,250,0.15)',color:'#60a5fa',border:'1px solid rgba(96,165,250,0.3)'}}>⚡ Fastest</span>}
+                          {opt.badge&&!isCheapest&&!isFastest&&<span className="badge badge-gold">{opt.badge}</span>}
+                        </div>
+                        <div className="flex items-center gap-4 flex-wrap mb-3">
+                          {opt.duration&&<span className="text-sm" style={{color:'var(--text-secondary)'}}>⏱ {opt.duration}</span>}
+                          {opt.price_from_usd&&<span className="text-sm font-semibold" style={{color:'var(--gold-light)'}}>From ${opt.price_from_usd}</span>}
+                          {opt.price_to_usd&&<span className="text-sm" style={{color:'var(--text-muted)'}}>– ${opt.price_to_usd}</span>}
+                        </div>
+                        {(opt.pros||[]).length>0&&(
+                          <div className="flex flex-wrap gap-1 mb-2">
+                            {opt.pros.map((p:string,j:number)=>(
+                              <span key={j} className="text-xs px-2 py-0.5 rounded-full"
+                                style={{background:'rgba(45,212,160,0.1)',color:'#2dd4a0'}}>✓ {p}</span>
+                            ))}
+                          </div>
+                        )}
+                        {(opt.cons||[]).length>0&&(
+                          <div className="flex flex-wrap gap-1 mb-2">
+                            {opt.cons.map((c:string,j:number)=>(
+                              <span key={j} className="text-xs px-2 py-0.5 rounded-full"
+                                style={{background:'rgba(244,63,94,0.08)',color:'#fb7185'}}>✗ {c}</span>
+                            ))}
+                          </div>
+                        )}
                       </div>
-                      <div className="flex items-center gap-4 flex-wrap mb-3">
-                        {opt.duration&&<span className="text-sm" style={{color:'var(--text-secondary)'}}>⏱ {opt.duration}</span>}
-                        {opt.price_from_usd&&<span className="text-sm font-semibold" style={{color:'var(--gold-light)'}}>From ${opt.price_from_usd}</span>}
-                        {opt.price_to_usd&&<span className="text-sm" style={{color:'var(--text-muted)'}}>– ${opt.price_to_usd}</span>}
+                      {/* Comfort + eco */}
+                      <div className="text-right flex-shrink-0 space-y-1.5">
+                        {opt.comfort&&(
+                          <div className="flex items-center gap-1 justify-end">
+                            {[...Array(5)].map((_,k)=>(
+                              <div key={k} className="w-2 h-2 rounded-full" style={{background:k<opt.comfort?'var(--gold)':'var(--bg-4)'}}/>
+                            ))}
+                            <span className="text-xs ml-1" style={{color:'var(--text-muted)'}}>comfort</span>
+                          </div>
+                        )}
+                        {opt.eco_score&&(
+                          <div className="flex items-center gap-1 justify-end">
+                            {[...Array(5)].map((_,k)=>(
+                              <div key={k} className="w-2 h-2 rounded-full" style={{background:k<opt.eco_score?'#2dd4a0':'var(--bg-4)'}}/>
+                            ))}
+                            <span className="text-xs ml-1" style={{color:'var(--text-muted)'}}>eco</span>
+                          </div>
+                        )}
                       </div>
-                      {(opt.pros||[]).length>0&&(
-                        <div className="flex flex-wrap gap-1 mb-2">
-                          {opt.pros.map((p:string,j:number)=>(
-                            <span key={j} className="text-xs px-2 py-0.5 rounded-full"
-                              style={{background:'rgba(45,212,160,0.1)',color:'#2dd4a0'}}>✓ {p}</span>
-                          ))}
-                        </div>
-                      )}
-                      {(opt.cons||[]).length>0&&(
-                        <div className="flex flex-wrap gap-1">
-                          {opt.cons.map((c:string,j:number)=>(
-                            <span key={j} className="text-xs px-2 py-0.5 rounded-full"
-                              style={{background:'rgba(244,63,94,0.08)',color:'#fb7185'}}>✗ {c}</span>
-                          ))}
-                        </div>
-                      )}
                     </div>
-                    {/* Comfort + eco scores */}
-                    <div className="text-right flex-shrink-0 space-y-1">
-                      {opt.comfort&&(
-                        <div className="flex items-center gap-1 justify-end">
-                          {[...Array(5)].map((_,k)=>(
-                            <div key={k} className="w-2 h-2 rounded-full"
-                              style={{background:k<opt.comfort?'var(--gold)':'var(--bg-4)'}}/>
+
+                    {/* Platform comparison — THE KEY INTELLIGENCE */}
+                    {((opt.book_platforms||[]).length>0||(opt.mode_icon==='✈️'))&&(
+                      <div className="mt-3 pt-3" style={{borderTop:'1px solid var(--border)'}}>
+                        <p className="text-xs font-semibold mb-2" style={{color:'var(--text-muted)'}}>
+                          📊 Where to book · cheapest first
+                        </p>
+                        <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                          {(opt.book_platforms?.length ? opt.book_platforms : flightPlatforms).map((p:any,j:number)=>(
+                            <a key={j} href={p.url} target="_blank" rel="noopener noreferrer"
+                              className="flex items-center justify-between p-2.5 rounded-xl transition-all hover-lift"
+                              style={{background:p.color||'var(--bg-3)',border:`1px solid ${p.border||'var(--border)'}`}}>
+                              <div className="min-w-0">
+                                <p className="text-xs font-semibold truncate" style={{color:'var(--text-primary)'}}>{p.name}</p>
+                                <p className="text-xs truncate" style={{color:'var(--text-muted)'}}>{p.note||p.why||''}</p>
+                              </div>
+                              <ExternalLink className="w-3 h-3 ml-1 flex-shrink-0" style={{color:'var(--text-muted)'}}/>
+                            </a>
                           ))}
-                          <span className="text-xs ml-1" style={{color:'var(--text-muted)'}}>comfort</span>
                         </div>
-                      )}
-                      {opt.eco_score&&(
-                        <div className="flex items-center gap-1 justify-end">
-                          {[...Array(5)].map((_,k)=>(
-                            <div key={k} className="w-2 h-2 rounded-full"
-                              style={{background:k<opt.eco_score?'#2dd4a0':'var(--bg-4)'}}/>
-                          ))}
-                          <span className="text-xs ml-1" style={{color:'var(--text-muted)'}}>eco</span>
-                        </div>
-                      )}
-                    </div>
+                      </div>
+                    )}
+
+                    {(opt.tips||[]).length>0&&(
+                      <div className="mt-2 space-y-1">
+                        {opt.tips.map((t:string,j:number)=>(
+                          <div key={j} className="flex items-start gap-2">
+                            <Star className="w-3 h-3 mt-0.5 flex-shrink-0" style={{color:'var(--gold)'}}/>
+                            <p className="text-xs" style={{color:'var(--text-muted)'}}>{t}</p>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
+                )
+              })}
 
-                  {/* Booking platforms */}
-                  {(opt.book_platforms||[]).length>0&&(
-                    <div className="mt-3 pt-3 flex flex-wrap gap-2" style={{borderTop:'1px solid var(--border)'}}>
-                      {opt.book_platforms.map((p:any,j:number)=>(
-                        <a key={j} href={p.url} target="_blank" rel="noopener noreferrer"
-                          className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg transition-all hover-lift"
-                          style={{background:'rgba(201,168,76,0.1)',border:'1px solid rgba(201,168,76,0.2)',color:'var(--gold-light)'}}>
-                          <ExternalLink className="w-3 h-3"/>{p.name}
-                          {p.note&&<span style={{color:'var(--text-muted)'}}>· {p.note}</span>}
-                        </a>
-                      ))}
-                    </div>
-                  )}
-
-                  {(opt.tips||[]).length>0&&(
-                    <div className="mt-2">
-                      {opt.tips.map((t:string,j:number)=>(
-                        <div key={j} className="flex items-start gap-2 mt-1">
-                          <Star className="w-3 h-3 mt-0.5 flex-shrink-0" style={{color:'var(--gold)'}}/>
-                          <p className="text-xs" style={{color:'var(--text-muted)'}}>{t}</p>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              ))}
-
-              {/* Unavailable modes */}
+              {/* Unavailable */}
               {transportOptions.filter((o:any)=>o.available===false).map((opt:any,i:number)=>(
-                <div key={i} className="glass rounded-xl p-4 opacity-50">
+                <div key={i} className="glass rounded-xl p-4 opacity-40">
                   <div className="flex items-center gap-3">
                     <span className="text-xl">{opt.mode_icon}</span>
                     <span className="text-sm" style={{color:'var(--text-secondary)'}}>{opt.title}</span>
@@ -716,33 +819,204 @@ function FlightsTab({tripData}:{tripData:Record<string,unknown>}) {
                 </div>
               ))}
 
-              {/* Local transport at destination */}
-              {localT&&(
-                <div className="glass rounded-2xl p-5" style={{border:'1px solid rgba(201,168,76,0.2)'}}>
-                  <h4 className="font-semibold mb-3" style={{color:'var(--text-primary)'}}>
-                    🚇 Getting around {localT.city as string}
-                  </h4>
-                  <div className="space-y-3">
-                    <div className="p-3 rounded-xl" style={{background:'var(--bg-3)'}}>
-                      <p className="font-medium text-sm" style={{color:'var(--text-primary)'}}>{localT.primary_mode as string}</p>
-                      <p className="text-xs mt-1" style={{color:'var(--text-secondary)'}}>{localT.why as string}</p>
-                      {localT.pass_recommendation&&(
-                        <p className="text-xs mt-1" style={{color:'var(--gold-light)'}}>
-                          💳 {localT.pass_recommendation as string} — ${localT.pass_cost_usd} · {localT.pass_where_to_buy as string}
-                        </p>
-                      )}
-                    </div>
+              {/* Flexible dates tip for flights */}
+              {(transport as any)?.flexible_dates_tip&&(
+                <div className="rounded-xl p-4 flex items-start gap-3"
+                  style={{background:'rgba(45,212,160,0.06)',border:'1px solid rgba(45,212,160,0.2)'}}>
+                  <span className="text-lg">📅</span>
+                  <p className="text-sm" style={{color:'var(--text-secondary)'}}>{(transport as any).flexible_dates_tip}</p>
+                </div>
+              )}
 
-                    {/* Key routes */}
-                    {((localT.key_routes as any[])||[]).map((r:any,i:number)=>(
+              <button className="btn-secondary w-full" onClick={loadTransport}>
+                <RefreshCw className="w-4 h-4 inline mr-2"/>Refresh
+              </button>
+            </div>
+          )}
+
+          {/* Flights-only deep search */}
+          <div className="glass rounded-2xl p-5">
+            <div className="flex items-center justify-between mb-3">
+              <p className="font-semibold text-sm" style={{color:'var(--text-primary)'}}>✈️ Flight-only deep search</p>
+              <button onClick={loadFlights} disabled={loadingF}
+                className="btn-secondary flex items-center gap-1.5 text-xs py-1.5 px-3">
+                {loadingF?<Loader2 className="w-3.5 h-3.5 animate-spin"/>:<Zap className="w-3.5 h-3.5"/>}
+                {loadingF?'Searching...':'Search flights'}
+              </button>
+            </div>
+            {/* Platform grid — always visible */}
+            <p className="text-xs mb-2" style={{color:'var(--text-muted)'}}>Book directly on these platforms — open in new tab to compare:</p>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+              {flightPlatforms.map((p,i)=>(
+                <a key={i} href={p.url} target="_blank" rel="noopener noreferrer"
+                  className="flex items-center justify-between p-2.5 rounded-xl transition-all hover-lift"
+                  style={{background:p.color,border:`1px solid ${p.border}`}}>
+                  <div>
+                    <p className="text-xs font-semibold" style={{color:'var(--text-primary)'}}>{p.name}</p>
+                    <p className="text-xs" style={{color:'var(--text-muted)'}}>{p.note}</p>
+                  </div>
+                  <ExternalLink className="w-3.5 h-3.5" style={{color:'var(--text-muted)'}}/>
+                </a>
+              ))}
+            </div>
+            {/* AI flight results */}
+            {loadingF&&(
+              <div className="mt-4 space-y-3">
+                {[...Array(3)].map((_,i)=>(
+                  <div key={i} className="glass rounded-xl p-4 space-y-2">
+                    <div className="flex justify-between"><div className="h-4 skeleton rounded w-1/3"/><div className="h-5 skeleton rounded w-1/5"/></div>
+                    <div className="h-3 skeleton rounded w-1/2"/>
+                  </div>
+                ))}
+              </div>
+            )}
+            {flights&&!loadingF&&(
+              <div className="mt-4 space-y-3">
+                {(flights.flexible_dates as any)?.note&&(
+                  <div className="rounded-lg p-3 flex items-start gap-2"
+                    style={{background:'rgba(45,212,160,0.06)',border:'1px solid rgba(45,212,160,0.2)'}}>
+                    <span className="text-sm">📅</span>
+                    <p className="text-xs" style={{color:'var(--text-secondary)'}}>{(flights.flexible_dates as any).note}
+                      {(flights.flexible_dates as any).savings_usd&&<strong style={{color:'#2dd4a0'}}> ~${(flights.flexible_dates as any).savings_usd} saved</strong>}
+                    </p>
+                  </div>
+                )}
+                {flightResults.map((f:any,i:number)=>(
+                  <div key={i} className="glass feature-card rounded-xl p-4 hover-lift">
+                    <div className="flex items-start justify-between gap-3 flex-wrap">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-1.5 flex-wrap">
+                          {f.badge&&<span className="badge badge-gold text-xs">{f.badge}</span>}
+                          <span className="font-semibold text-sm" style={{color:'var(--text-primary)'}}>{f.airline}</span>
+                          <span className="text-xs font-mono" style={{color:'var(--text-muted)'}}>{f.flight_number}</span>
+                        </div>
+                        <div className="flex items-center gap-3 mb-2">
+                          <span className="font-bold" style={{color:'var(--text-primary)'}}>{f.departure_time}</span>
+                          <div className="flex-1 flex items-center gap-1.5">
+                            <div className="flex-1 h-px" style={{background:'var(--border)'}}/>
+                            <div className="text-center px-1">
+                              <p className="text-xs leading-none" style={{color:'var(--text-muted)'}}>{f.duration}</p>
+                              <p className="text-xs leading-none mt-0.5" style={{color:f.stops===0?'#2dd4a0':'var(--text-muted)'}}>
+                                {f.stops===0?'Direct':`${f.stops} stop`}
+                              </p>
+                            </div>
+                            <div className="flex-1 h-px" style={{background:'var(--border)'}}/>
+                          </div>
+                          <span className="font-bold" style={{color:'var(--text-primary)'}}>{f.arrival_time}</span>
+                        </div>
+                        <div className="flex gap-3 flex-wrap">
+                          {f.baggage_kg&&<span className="text-xs" style={{color:'var(--text-muted)'}}>🧳 {f.baggage_kg}kg</span>}
+                          {f.on_time_percent&&<span className="text-xs" style={{color:'var(--text-muted)'}}>⏱ {f.on_time_percent}% on-time</span>}
+                          {(f.pros||[]).map((p:string,j:number)=>(
+                            <span key={j} className="text-xs" style={{color:'#2dd4a0'}}>✓ {p}</span>
+                          ))}
+                        </div>
+                      </div>
+                      <div className="text-right flex-shrink-0">
+                        <p className="font-bold text-xl" style={{color:'var(--text-primary)'}}>${f.price_usd}</p>
+                        <p className="text-xs" style={{color:'var(--text-muted)'}}>per person</p>
+                        <a href={f.skyscanner_url||flightPlatforms[0].url}
+                          target="_blank" rel="noopener noreferrer"
+                          className="mt-1.5 inline-flex items-center gap-1 btn-primary text-xs py-1.5 px-3">
+                          Book <ExternalLink className="w-3 h-3"/>
+                        </a>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ───────────── LOCAL TRAVEL ───────────── */}
+      {subTab==='local-travel'&&(
+        <div className="space-y-4">
+          {!transport&&!loadingT&&(
+            <div className="glass rounded-2xl p-10 text-center">
+              <div className="text-5xl mb-4">🚇</div>
+              <h3 className="font-display text-xl font-bold mb-2" style={{color:'var(--text-primary)'}}>Local transport in {dest}</h3>
+              <p className="text-sm mb-6" style={{color:'var(--text-secondary)'}}>
+                Metro, buses, airport transfers, ride-hailing — with key routes and how much to budget
+              </p>
+              <button className="btn-primary flex items-center gap-2 mx-auto" onClick={loadTransport}>
+                <Zap className="w-4 h-4"/>Load local transport guide
+              </button>
+            </div>
+          )}
+          {loadingT&&(
+            <div className="space-y-3">
+              {[...Array(3)].map((_,i)=>(
+                <div key={i} className="glass rounded-xl p-5 space-y-3">
+                  <div className="h-5 skeleton rounded w-1/3"/>
+                  <div className="h-4 skeleton rounded w-1/2"/>
+                  <div className="h-3 skeleton rounded w-2/3"/>
+                </div>
+              ))}
+            </div>
+          )}
+          {transport&&!loadingT&&localT&&(
+            <div className="space-y-4">
+              {/* Primary recommendation */}
+              <div className="glass-gold rounded-2xl p-5">
+                <p className="section-label mb-2">TripWise recommends</p>
+                <div className="flex items-start gap-3">
+                  <span className="text-3xl">{localT.primary_icon||'🚇'}</span>
+                  <div>
+                    <p className="font-bold text-lg" style={{color:'var(--text-primary)'}}>{localT.primary_mode}</p>
+                    <p className="text-sm" style={{color:'var(--text-secondary)'}}>{localT.why}</p>
+                    {localT.pass_recommendation&&(
+                      <div className="mt-2 p-2 rounded-lg inline-flex items-center gap-2"
+                        style={{background:'rgba(201,168,76,0.1)',border:'1px solid rgba(201,168,76,0.2)'}}>
+                        <span className="text-sm">💳</span>
+                        <div>
+                          <p className="text-xs font-semibold" style={{color:'var(--gold-light)'}}>{localT.pass_recommendation}</p>
+                          <p className="text-xs" style={{color:'var(--text-muted)'}}>${localT.pass_cost_usd} · {localT.pass_where_to_buy}</p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Airport transfer */}
+              {localT.airport_transfer&&(
+                <div className="glass rounded-2xl p-5">
+                  <p className="section-label mb-3">✈️ Airport → City transfer</p>
+                  <div className="p-3 rounded-xl mb-3" style={{background:'var(--bg-3)'}}>
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-sm font-semibold" style={{color:'var(--text-primary)'}}>{localT.airport_transfer.recommendation}</span>
+                      <span className="text-sm font-bold" style={{color:'var(--gold-light)'}}>${localT.airport_transfer.cost_usd} · {localT.airport_transfer.duration_mins}min</span>
+                    </div>
+                    <p className="text-xs" style={{color:'var(--text-muted)'}}>{localT.airport_transfer.from}</p>
+                  </div>
+                  {/* Map: airport + city center */}
+                  {localT.airport_lat&&localT.city_lat&&(
+                    <EmbedMap
+                      locations={[
+                        {name:`${dest} Airport`, lat:Number(localT.airport_lat), lng:Number(localT.airport_lng), type:'airport', description:'International airport', isMain:true},
+                        {name:`${dest} City Center`, lat:Number(localT.city_lat), lng:Number(localT.city_lng), type:'attraction', description:'Main city hub'},
+                        ...(localT.transit_hubs||[]).map((h:any)=>({name:h.name, lat:Number(h.lat), lng:Number(h.lng), type:'transit' as const, description:h.lines, distance:h.distance_from_center})),
+                      ]}
+                      title={`${dest} — Airport & key transit hubs`}
+                      height={360}
+                      splitScreen={true}
+                    />
+                  )}
+                </div>
+              )}
+
+              {/* Key routes */}
+              {((localT.key_routes as any[])||[]).length>0&&(
+                <div className="glass rounded-2xl p-5">
+                  <p className="section-label mb-3">Key routes</p>
+                  <div className="space-y-2">
+                    {(localT.key_routes as any[]).map((r:any,i:number)=>(
                       <div key={i} className="p-3 rounded-xl" style={{background:'var(--bg-3)'}}>
                         <div className="flex items-center justify-between mb-1">
-                          <span className="text-sm font-medium" style={{color:'var(--text-primary)'}}>
-                            {r.from} → {r.to}
-                          </span>
-                          <span className="text-xs font-semibold" style={{color:'var(--gold-light)'}}>
-                            ${r.cost_usd} · {r.duration_mins}min
-                          </span>
+                          <span className="text-sm font-semibold" style={{color:'var(--text-primary)'}}>{r.from} → {r.to}</span>
+                          <span className="text-xs font-bold" style={{color:'var(--gold-light)'}}>${r.cost_usd} · {r.duration_mins}min</span>
                         </div>
                         {r.line&&<p className="text-xs" style={{color:'var(--text-muted)'}}>{r.line}{r.direction?` → ${r.direction}`:''}</p>}
                         {r.stations&&<p className="text-xs mt-0.5" style={{color:'var(--text-secondary)'}}>{r.stations}</p>}
@@ -754,210 +1028,46 @@ function FlightsTab({tripData}:{tripData:Record<string,unknown>}) {
                         )}
                       </div>
                     ))}
-
-                    {/* Apps */}
-                    {((localT.apps as any[])||[]).length>0&&(
-                      <div>
-                        <p className="section-label mb-2">Recommended apps</p>
-                        <div className="flex flex-wrap gap-2">
-                          {(localT.apps as any[]).map((app:any,j:number)=>(
-                            <a key={j} href={app.url} target="_blank" rel="noopener noreferrer"
-                              className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg hover-lift"
-                              style={{background:'rgba(74,127,212,0.1)',border:'1px solid rgba(74,127,212,0.2)',color:'#7aa8e8'}}>
-                              <ExternalLink className="w-3 h-3"/>{app.name}
-                            </a>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
-                    {localT.avoid&&(
-                      <div className="flex items-start gap-2 p-2 rounded-lg"
-                        style={{background:'rgba(244,63,94,0.06)',border:'1px solid rgba(244,63,94,0.15)'}}>
-                        <AlertTriangle className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" style={{color:'#fb7185'}}/>
-                        <p className="text-xs" style={{color:'#fb7185'}}>{localT.avoid as string}</p>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* FLIGHTS ONLY */}
-      {activeMode==='flights'&&(
-        <div className="space-y-4">
-          {/* Skyscanner embedded search widget - always visible */}
-          {(() => {
-            const orig = (tripData.origin||'').toString().split(',')[0].trim()
-            const dest = (tripData.destination || itinerary?.destination || '').toString().split(',')[0].trim()
-            const dep = (tripData.start_date||'').toString().replace(/-/g,'')
-            const ret = (tripData.end_date||'').toString().replace(/-/g,'')
-            const adults = Number(tripData.group_size||1)
-            // Skyscanner search URL
-            const skyUrl = dep
-              ? `https://www.skyscanner.com/transport/flights/${orig.toLowerCase().replace(/\s/g,'')}/${dest.toLowerCase().replace(/\s/g,'')}/${dep}/${ret}/?adults=${adults}&cabinclass=economy`
-              : `https://www.skyscanner.com/transport/flights/${orig.toLowerCase().replace(/\s/g,'')}/${dest.toLowerCase().replace(/\s/g,'')}/`
-            return (
-              <div className="glass rounded-2xl p-5 mb-4">
-                <div className="flex items-center gap-3 mb-4">
-                  <div className="w-8 h-8 rounded-lg flex items-center justify-center"
-                    style={{background:'rgba(0,134,195,0.15)',border:'1px solid rgba(0,134,195,0.3)'}}>
-                    <span className="text-sm">✈️</span>
-                  </div>
-                  <div>
-                    <p className="font-semibold text-sm" style={{color:'var(--text-primary)'}}>
-                      Search on Skyscanner
-                    </p>
-                    <p className="text-xs" style={{color:'var(--text-muted)'}}>
-                      {orig} → {dest} · {adults} passenger{adults>1?'s':''}
-                    </p>
-                  </div>
-                  <a href={skyUrl} target="_blank" rel="noopener noreferrer"
-                    className="ml-auto btn-primary flex items-center gap-2 text-sm py-2.5 px-4">
-                    <ExternalLink className="w-3.5 h-3.5"/>Open Skyscanner
-                  </a>
-                </div>
-                {/* Platform comparison grid */}
-                <p className="section-label mb-3">Compare on all platforms</p>
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-                  {[
-                    {name:'Skyscanner', url:skyUrl, note:'Best overall comparison', color:'rgba(0,134,195,0.1)', border:'rgba(0,134,195,0.25)'},
-                    {name:'Google Flights', url:`https://flights.google.com/search?q=flights+from+${encodeURIComponent(orig)}+to+${encodeURIComponent(dest)}`, note:'Price calendar & alerts', color:'rgba(66,133,244,0.1)', border:'rgba(66,133,244,0.25)'},
-                    {name:'Kayak', url:`https://www.kayak.com/flights/${orig.replace(/\s/g,'-')}-${dest.replace(/\s/g,'-')}/${dep||''}/${ret||''}/${adults}adults`, note:'Flexible date search', color:'rgba(255,111,0,0.1)', border:'rgba(255,111,0,0.25)'},
-                    {name:'Momondo', url:`https://www.momondo.com/flight-search/${orig}/${dest}/${dep||''}/${ret||''}`, note:'Often finds hidden deals', color:'rgba(255,87,34,0.1)', border:'rgba(255,87,34,0.25)'},
-                    {name:'Expedia', url:`https://www.expedia.com/Flights-Search?trip=roundtrip&leg1=from:${orig},to:${dest},departure:${dep||''}`, note:'Bundle with hotel', color:'rgba(0,170,240,0.1)', border:'rgba(0,170,240,0.25)'},
-                    {name:'Kiwi.com', url:`https://www.kiwi.com/en/search/results/${orig.toLowerCase()}/${dest.toLowerCase()}/${dep||''}/${ret||''}`, note:'Cheapest multi-stop routes', color:'rgba(0,200,150,0.1)', border:'rgba(0,200,150,0.25)'},
-                  ].map((p,i)=>(
-                    <a key={i} href={p.url} target="_blank" rel="noopener noreferrer"
-                      className="flex items-center justify-between p-3 rounded-xl transition-all hover-lift"
-                      style={{background:p.color, border:`1px solid ${p.border}`}}>
-                      <div className="min-w-0">
-                        <p className="text-sm font-semibold" style={{color:'var(--text-primary)'}}>{p.name}</p>
-                        <p className="text-xs truncate" style={{color:'var(--text-muted)'}}>{p.note}</p>
-                      </div>
-                      <ExternalLink className="w-3.5 h-3.5 ml-2 flex-shrink-0" style={{color:'var(--text-muted)'}}/>
-                    </a>
-                  ))}
-                </div>
-              </div>
-            )
-          })()}
-
-          {!flights&&!loadingF&&(
-            <div className="glass rounded-2xl p-8 text-center">
-              <Plane className="w-12 h-12 mx-auto mb-4" style={{color:'var(--text-muted)'}}/>
-              <h3 className="font-display text-xl font-bold mb-2" style={{color:'var(--text-primary)'}}>AI flight comparison</h3>
-              <p className="text-sm mb-6" style={{color:'var(--text-secondary)'}}>
-                Get AI-curated flight options with price and reliability comparison
-              </p>
-              <button className="btn-primary flex items-center gap-2 mx-auto" onClick={searchFlights} disabled={loadingF}>
-                {loadingF?<Loader2 className="w-4 h-4 animate-spin"/>:<Zap className="w-4 h-4"/>}
-                {loadingF?'Searching...':'Search flights'}
-              </button>
-            </div>
-          )}
-
-          {loadingF&&(
-            <div className="space-y-3">
-              {[...Array(3)].map((_,i)=>(
-                <div key={i} className="glass rounded-2xl p-5 space-y-3">
-                  <div className="flex justify-between">
-                    <div className="h-5 skeleton rounded w-1/4"/>
-                    <div className="h-5 skeleton rounded w-1/5"/>
-                  </div>
-                  <div className="h-4 skeleton rounded w-1/2"/>
-                  <div className="h-3 skeleton rounded w-1/3"/>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {flights&&!loadingF&&(
-            <div className="space-y-4">
-              {(flights.flexible_dates as any)?.note&&(
-                <div className="glass rounded-xl p-4" style={{borderColor:'rgba(45,212,160,0.3)'}}>
-                  <div className="flex items-center gap-2">
-                    <span className="badge badge-green">Save</span>
-                    <p className="text-sm" style={{color:'var(--text-secondary)'}}>{(flights.flexible_dates as any).note}</p>
-                    {(flights.flexible_dates as any).savings_usd&&(
-                      <span className="ml-auto text-sm font-bold" style={{color:'#2dd4a0'}}>
-                        ~${(flights.flexible_dates as any).savings_usd} saved
-                      </span>
-                    )}
                   </div>
                 </div>
               )}
 
-              {flightResults.map((f:any,i:number)=>(
-                <div key={i} className="glass feature-card rounded-2xl p-5 hover-lift">
-                  <div className="flex items-start justify-between gap-4 flex-wrap">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-2">
-                        {f.badge&&<span className="badge badge-gold">{f.badge}</span>}
-                        <span className="font-semibold" style={{color:'var(--text-primary)'}}>{f.airline}</span>
-                        <span className="text-xs font-mono" style={{color:'var(--text-muted)'}}>{f.flight_number}</span>
-                      </div>
-                      <div className="flex items-center gap-3">
-                        <span className="font-bold text-lg" style={{color:'var(--text-primary)'}}>{f.departure_time}</span>
-                        <div className="flex-1 flex items-center gap-2">
-                          <div className="flex-1 h-px" style={{background:'var(--border)'}}/>
-                          <div className="text-center">
-                            <p className="text-xs" style={{color:'var(--text-muted)'}}>{f.duration}</p>
-                            <p className="text-xs" style={{color:f.stops===0?'#2dd4a0':'var(--text-muted)'}}>
-                              {f.stops===0?'Direct':`${f.stops} stop`}
-                            </p>
-                          </div>
-                          <div className="flex-1 h-px" style={{background:'var(--border)'}}/>
-                        </div>
-                        <span className="font-bold text-lg" style={{color:'var(--text-primary)'}}>{f.arrival_time}</span>
-                      </div>
-                      <div className="flex gap-4 mt-2 flex-wrap">
-                        <span className="text-xs" style={{color:'var(--text-muted)'}}>🧳 {f.baggage_kg}kg</span>
-                        <span className="text-xs" style={{color:'var(--text-muted)'}}>⏱ {f.on_time_percent}% on-time</span>
-                        {(f.pros||[]).map((p:string,j:number)=>(
-                          <span key={j} className="text-xs" style={{color:'#2dd4a0'}}>✓ {p}</span>
-                        ))}
-                      </div>
-                    </div>
-                    <div className="text-right flex-shrink-0">
-                      <p className="font-bold text-2xl" style={{color:'var(--text-primary)'}}>${f.price_usd}</p>
-                      <p className="text-xs" style={{color:'var(--text-muted)'}}>per person</p>
-                      <a href={f.skyscanner_url||'https://www.skyscanner.com'}
-                        target="_blank" rel="noopener noreferrer"
-                        className="mt-2 inline-flex items-center gap-1.5 btn-primary text-sm py-2 px-4">
-                        Book <ExternalLink className="w-3 h-3"/>
-                      </a>
-                    </div>
-                  </div>
-                </div>
-              ))}
-
-              {/* Booking platforms comparison */}
-              {((flights.booking_platforms as any[])||[]).length>0&&(
-                <div className="glass rounded-xl p-5">
-                  <p className="section-label mb-3">Compare on all platforms</p>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                    {(flights.booking_platforms as any[]).map((p:any,i:number)=>(
-                      <a key={i} href={p.url} target="_blank" rel="noopener noreferrer"
-                        className="flex items-center justify-between p-3 rounded-xl hover-lift"
-                        style={{background:'var(--bg-3)',border:'1px solid var(--border)'}}>
+              {/* Apps */}
+              {((localT.apps as any[])||[]).length>0&&(
+                <div className="glass rounded-2xl p-5">
+                  <p className="section-label mb-3">Recommended apps</p>
+                  <div className="grid grid-cols-2 gap-2">
+                    {(localT.apps as any[]).map((app:any,j:number)=>(
+                      <a key={j} href={app.url} target="_blank" rel="noopener noreferrer"
+                        className="flex items-center gap-2 p-3 rounded-xl hover-lift"
+                        style={{background:'rgba(74,127,212,0.08)',border:'1px solid rgba(74,127,212,0.2)'}}>
+                        <span className="text-lg">{app.icon||'📱'}</span>
                         <div>
-                          <p className="text-sm font-semibold" style={{color:'var(--text-primary)'}}>{p.name}</p>
-                          <p className="text-xs" style={{color:'var(--text-muted)'}}>{p.why}</p>
+                          <p className="text-xs font-semibold" style={{color:'var(--text-primary)'}}>{app.name}</p>
+                          {app.what_for&&<p className="text-xs" style={{color:'var(--text-muted)'}}>{app.what_for}</p>}
                         </div>
-                        <ExternalLink className="w-4 h-4" style={{color:'var(--text-muted)'}}/>
+                        <ExternalLink className="w-3 h-3 ml-auto" style={{color:'var(--text-muted)'}}/>
                       </a>
                     ))}
                   </div>
                 </div>
               )}
 
-              <button className="btn-secondary w-full" onClick={searchFlights}>
-                <RefreshCw className="w-4 h-4 inline mr-2"/>Refresh results
-              </button>
+              {localT.avoid&&(
+                <div className="flex items-start gap-3 p-4 rounded-xl"
+                  style={{background:'rgba(244,63,94,0.06)',border:'1px solid rgba(244,63,94,0.15)'}}>
+                  <AlertTriangle className="w-4 h-4 mt-0.5 flex-shrink-0" style={{color:'#fb7185'}}/>
+                  <div>
+                    <p className="text-xs font-semibold mb-0.5" style={{color:'#fb7185'}}>Avoid</p>
+                    <p className="text-xs" style={{color:'#fb7185'}}>{localT.avoid}</p>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+          {transport&&!loadingT&&!localT&&(
+            <div className="glass rounded-xl p-6 text-center">
+              <p className="text-sm" style={{color:'var(--text-muted)'}}>Local transport data not available for this destination.</p>
             </div>
           )}
         </div>
@@ -965,6 +1075,7 @@ function FlightsTab({tripData}:{tripData:Record<string,unknown>}) {
     </div>
   )
 }
+
 
 
 export default function TripPage() {
@@ -981,8 +1092,9 @@ export default function TripPage() {
   const [editing,setEditing] = useState(false)
   const [copied,setCopied] = useState(false)
   const [checkedPacking,setCheckedPacking] = useState<string[]>([])
-  const [expenses,setExpenses] = useState<{title:string;amount:number;who:string}[]>([])
-  const [newExp,setNewExp] = useState({title:'',amount:'',who:''})
+  const [expenses,setExpenses] = useState<{id?:string;title:string;amount_usd:number;paid_by:string;paid_by_name:string;created_at?:string}[]>([])
+  const [newExp,setNewExp] = useState({title:'',amount:'',who:'',whoName:''})
+  const [addingExpense,setAddingExpense] = useState(false)
   const [members,setMembers] = useState<{user_id:string;user_name:string;user_email:string;role:string;joined_at:string}[]>([])
   const [notes,setNotes] = useState<{id:string;user_id:string;user_name:string;content:string;pinned:boolean;created_at:string}[]>([])
   const [newNote,setNewNote] = useState('')
@@ -990,7 +1102,6 @@ export default function TripPage() {
   const [splits,setSplits] = useState<{from:string;to:string;amount:number}[]>([])
   const [removingMember,setRemovingMember] = useState<string|null>(null)
   const [showSplitModal,setShowSplitModal] = useState(false)
-
   useEffect(() => {
     if (!authLoading && !user) router.replace('/')
   }, [user, authLoading, router])
@@ -1003,11 +1114,26 @@ export default function TripPage() {
         const i = sessionStorage.getItem('tripwise_itinerary')
         const t = sessionStorage.getItem('tripwise_tripdata')
         const savedId = sessionStorage.getItem('tripwise_trip_id')
-        // If URL id matches sessionStorage id, use sessionStorage
+        // If URL id matches sessionStorage id, use sessionStorage for heavy data
         if (v && i && (params.id === 'new' || params.id === savedId)) {
           setViability(JSON.parse(v))
           setItinerary(JSON.parse(i))
           if (t) setTripData(JSON.parse(t))
+          // Still fetch live group data (members, notes, expenses) from DB
+          if (params.id && params.id !== 'new') {
+            try {
+              const mRes = await fetch(`${API}/api/trips/${params.id}/members`)
+              if (mRes.ok) { const mData = await mRes.json(); setMembers(Array.isArray(mData) ? mData : []) }
+            } catch {}
+            try {
+              const nRes = await fetch(`${API}/api/trips/${params.id}/notes`)
+              if (nRes.ok) { const nData = await nRes.json(); setNotes(Array.isArray(nData) ? nData : []) }
+            } catch {}
+            try {
+              const eRes = await fetch(`${API}/api/trips/${params.id}/expenses`)
+              if (eRes.ok) { const eData = await eRes.json(); setExpenses(Array.isArray(eData) ? eData : []) }
+            } catch {}
+          }
           return
         }
       } catch(e) { console.error(e) }
@@ -1031,14 +1157,33 @@ export default function TripPage() {
           // Cache invite code for share tab
           if (full.invite_code) sessionStorage.setItem('tripwise_invite_code', full.invite_code)
           // Fetch members
+          let loadedMembers: typeof members = []
           try {
             const mRes = await fetch(`${API}/api/trips/${params.id}/members`)
-            if (mRes.ok) { const mData = await mRes.json(); setMembers(Array.isArray(mData) ? mData : []) }
+            if (mRes.ok) { const mData = await mRes.json(); loadedMembers = Array.isArray(mData) ? mData : []; setMembers(loadedMembers) }
           } catch {}
+          // Auto-join: if the current user is not yet a member, add them silently
+          // (handles direct shared-link navigation where user wasn't added via invite flow)
+          if (user && !loadedMembers.find((m: any) => m.user_id === user.uid)) {
+            try {
+              await fetch(`${API}/api/trips/${params.id}/members`, {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ user_id: user.uid, user_email: user.email, user_name: user.displayName }),
+              })
+              // Re-fetch members after joining
+              const mRes2 = await fetch(`${API}/api/trips/${params.id}/members`)
+              if (mRes2.ok) { const mData2 = await mRes2.json(); setMembers(Array.isArray(mData2) ? mData2 : []) }
+            } catch {}
+          }
           // Fetch notes
           try {
             const nRes = await fetch(`${API}/api/trips/${params.id}/notes`)
             if (nRes.ok) { const nData = await nRes.json(); setNotes(Array.isArray(nData) ? nData : []) }
+          } catch {}
+          // Fetch expenses
+          try {
+            const eRes = await fetch(`${API}/api/trips/${params.id}/expenses`)
+            if (eRes.ok) { const eData = await eRes.json(); setExpenses(Array.isArray(eData) ? eData : []) }
           } catch {}
         } catch(e) {
           console.error('Failed to load trip from DB:', e)
@@ -1450,9 +1595,10 @@ export default function TripPage() {
                     <div className="mb-5">
                       <EmbedMap
                         locations={dayLocs}
-                        title={`Day ${days[activeDay].day} map — ${days[activeDay].theme}`}
-                        height={320}
+                        title={`Day ${days[activeDay].day} — ${days[activeDay].theme}`}
+                        height={360}
                         showList={true}
+                        splitScreen={true}
                       />
                     </div>
                   ) : (
@@ -1568,7 +1714,7 @@ export default function TripPage() {
         )}
 
         {/* ── FLIGHTS ── */}
-        {activeTab==='Flights'&&<FlightsTab tripData={tripData} />}
+        {activeTab==='Transport'&&<TransportTab tripData={tripData} />}
 
         {/* ── HOTELS ── */}
         {activeTab==='Hotels'&&(
@@ -1832,95 +1978,103 @@ export default function TripPage() {
             {/* EXPENSES + SPLITWISE */}
             <div className="glass rounded-2xl p-5">
               <h3 className="font-semibold mb-4" style={{color:'var(--text-primary)'}}>Expense tracker</h3>
+              <p className="text-xs mb-4" style={{color:'var(--text-muted)'}}>
+                Expenses are shared in real-time with all trip members.
+              </p>
               <div className="grid grid-cols-1 gap-2 mb-3">
                 <input className="input-field" placeholder="What for? (e.g. Dinner at Tsukiji)"
                   value={newExp.title} onChange={e=>setNewExp(p=>({...p,title:e.target.value}))}/>
                 <div className="grid grid-cols-2 gap-2">
                   <input className="input-field" placeholder="$ Amount" type="number"
                     value={newExp.amount} onChange={e=>setNewExp(p=>({...p,amount:e.target.value}))}/>
-                  {/* Paid by — dropdown of members */}
                   <select className="input-field" value={newExp.who}
-                    onChange={e=>setNewExp(p=>({...p,who:e.target.value}))}>
+                    onChange={e=>{
+                      const m = members.find(m=>m.user_id===e.target.value)
+                      setNewExp(p=>({...p,who:e.target.value,whoName:m?.user_name||m?.user_email||e.target.value}))
+                    }}>
                     <option value="">Paid by...</option>
                     {members.map((m,i)=>(
-                      <option key={i} value={m.user_name||m.user_email||m.user_id}>
+                      <option key={i} value={m.user_id}>
                         {m.user_name||m.user_email||'Member'}
                       </option>
                     ))}
-                    {/* Fallback if no members loaded */}
-                    {members.length===0&&<option value="Me">Me</option>}
+                    {members.length===0&&<option value={user?.uid||'me'}>{user?.displayName||'Me'}</option>}
                   </select>
                 </div>
               </div>
               <button className="btn-secondary w-full flex items-center justify-center gap-2 mb-4"
-                onClick={()=>{
-                  if(newExp.title&&newExp.amount&&newExp.who){
-                    setExpenses(p=>[...p,{title:newExp.title,amount:Number(newExp.amount),who:newExp.who}])
-                    setNewExp({title:'',amount:'',who:''})
-                  }
+                disabled={addingExpense||!newExp.title||!newExp.amount||!newExp.who}
+                onClick={async()=>{
+                  if(!newExp.title||!newExp.amount||!newExp.who||!params.id||params.id==='new') return
+                  setAddingExpense(true)
+                  try {
+                    const payerName = newExp.whoName||(members.find(m=>m.user_id===newExp.who)?.user_name)||newExp.who
+                    const res = await fetch(`${API}/api/trips/${params.id}/expense`,{
+                      method:'POST', headers:{'Content-Type':'application/json'},
+                      body: JSON.stringify({
+                        trip_id: params.id,
+                        paid_by: newExp.who,
+                        paid_by_name: payerName,
+                        title: newExp.title,
+                        amount_usd: Number(newExp.amount),
+                        split_between: members.map(m=>m.user_id),
+                      })
+                    })
+                    if(res.ok){const saved=await res.json();setExpenses(p=>[...p,saved])}
+                    setNewExp({title:'',amount:'',who:'',whoName:''})
+                  }catch(err){console.error(err)}finally{setAddingExpense(false)}
                 }}>
-                <Plus className="w-4 h-4"/>Add expense
+                {addingExpense?<Loader2 className="w-4 h-4 animate-spin"/>:<Plus className="w-4 h-4"/>}
+                Add expense
               </button>
 
               {expenses.length>0&&(
                 <div className="space-y-2 mb-4">
                   {expenses.map((e,i)=>(
-                    <div key={i} className="flex items-center justify-between py-2 px-3 rounded-lg"
+                    <div key={e.id||i} className="flex items-center justify-between py-2 px-3 rounded-lg"
                       style={{background:'var(--bg-3)'}}>
                       <div>
                         <span className="text-sm font-medium" style={{color:'var(--text-primary)'}}>{e.title}</span>
-                        <span className="text-xs ml-2" style={{color:'var(--text-muted)'}}>paid by {e.who}</span>
+                        <span className="text-xs ml-2" style={{color:'var(--text-muted)'}}>paid by {e.paid_by_name}</span>
                       </div>
                       <span className="font-semibold" style={{color:'var(--text-primary)'}}>
-                        ${e.amount.toLocaleString()}
+                        ${e.amount_usd.toLocaleString()}
                       </span>
                     </div>
                   ))}
                   <div className="flex items-center justify-between pt-2" style={{borderTop:'1px solid var(--border)'}}>
                     <span className="font-semibold text-sm" style={{color:'var(--text-primary)'}}>Total spent</span>
                     <span className="font-bold gradient-text font-display">
-                      ${expenses.reduce((s,e)=>s+e.amount,0).toLocaleString()}
+                      ${expenses.reduce((s,e)=>s+e.amount_usd,0).toLocaleString()}
                     </span>
                   </div>
                 </div>
               )}
 
-              {/* Split Bill Button */}
-              {expenses.length > 0 && (
-                <button
-                  onClick={() => setShowSplitModal(true)}
-                  className="btn-primary w-full flex items-center justify-center gap-2 mt-2">
-                  <span>💸</span>
-                  Split bill
-                </button>
-              )}
-
-              {/* SPLITWISE logic */}
               {expenses.length>0&&members.length>0&&(()=>{
-                // Calculate who owes whom
-                const memberNames = members.map(m=>m.user_name||m.user_email||m.user_id)
-                const totalPerPerson = expenses.reduce((s,e)=>s+e.amount,0)/memberNames.length
+                const totalSpent = expenses.reduce((s,e)=>s+e.amount_usd,0)
+                const sharePerPerson = totalSpent/members.length
                 const paid: Record<string,number> = {}
-                memberNames.forEach(n=>{paid[n]=0})
-                expenses.forEach(e=>{if(paid[e.who]!==undefined) paid[e.who]+=e.amount})
+                members.forEach(m=>{paid[m.user_id]=0})
+                expenses.forEach(e=>{if(paid[e.paid_by]!==undefined) paid[e.paid_by]+=e.amount_usd})
                 const balances: Record<string,number> = {}
-                memberNames.forEach(n=>{balances[n]=(paid[n]||0)-totalPerPerson})
-                const creditors = Object.entries(balances).filter(([,v])=>v>0.5).sort((a,b)=>b[1]-a[1])
-                const debtors = Object.entries(balances).filter(([,v])=>v<-0.5).sort((a,b)=>a[1]-b[1])
-                const settlements: {from:string;to:string;amt:number}[] = []
-                const creds = creditors.map(([n,v])=>({n,v}))
-                const debts = debtors.map(([n,v])=>({n,v:Math.abs(v)}))
+                members.forEach(m=>{balances[m.user_id]=(paid[m.user_id]||0)-sharePerPerson})
+                const nameOf=(uid:string)=>members.find(m=>m.user_id===uid)?.user_name||members.find(m=>m.user_id===uid)?.user_email||uid
+                const creditors=Object.entries(balances).filter(([,v])=>v>0.5).sort((a,b)=>b[1]-a[1])
+                const debtors=Object.entries(balances).filter(([,v])=>v<-0.5).sort((a,b)=>a[1]-b[1])
+                const settlements:{from:string;to:string;amt:number}[]=[]
+                const creds=creditors.map(([id,v])=>({id,v}))
+                const debts=debtors.map(([id,v])=>({id,v:Math.abs(v)}))
                 let ci=0,di=0
                 while(ci<creds.length&&di<debts.length){
                   const pay=Math.min(creds[ci].v,debts[di].v)
-                  if(pay>0.5) settlements.push({from:debts[di].n,to:creds[ci].n,amt:Math.round(pay*100)/100})
-                  creds[ci].v-=pay; debts[di].v-=pay
-                  if(creds[ci].v<0.5) ci++
-                  if(debts[di].v<0.5) di++
+                  if(pay>0.5) settlements.push({from:nameOf(debts[di].id),to:nameOf(creds[ci].id),amt:Math.round(pay*100)/100})
+                  creds[ci].v-=pay;debts[di].v-=pay
+                  if(creds[ci].v<0.5)ci++;if(debts[di].v<0.5)di++
                 }
                 return settlements.length>0?(
                   <div className="mt-3 p-4 rounded-xl" style={{background:'rgba(45,212,160,0.06)',border:'1px solid rgba(45,212,160,0.2)'}}>
-                    <p className="text-xs font-semibold mb-3" style={{color:'#2dd4a0'}}>WHO PAYS WHOM</p>
+                    <p className="text-xs font-semibold mb-3" style={{color:'#2dd4a0'}}>💸 WHO PAYS WHOM</p>
                     <div className="space-y-2">
                       {settlements.map((s,i)=>(
                         <div key={i} className="flex items-center gap-2">
@@ -1931,12 +2085,13 @@ export default function TripPage() {
                         </div>
                       ))}
                     </div>
+                    <p className="text-xs mt-3" style={{color:'var(--text-muted)'}}>Each person's share: ${sharePerPerson.toFixed(2)}</p>
                   </div>
                 ):null
               })()}
             </div>
 
-            {/* GROUP NOTES */}
+                        {/* GROUP NOTES */}
             <div className="glass rounded-2xl p-5">
               <h3 className="font-semibold mb-4" style={{color:'var(--text-primary)'}}>Group notes</h3>
               <p className="text-xs mb-4" style={{color:'var(--text-muted)'}}>
