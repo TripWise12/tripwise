@@ -981,8 +981,9 @@ export default function TripPage() {
   const [editing,setEditing] = useState(false)
   const [copied,setCopied] = useState(false)
   const [checkedPacking,setCheckedPacking] = useState<string[]>([])
-  const [expenses,setExpenses] = useState<{title:string;amount:number;who:string}[]>([])
-  const [newExp,setNewExp] = useState({title:'',amount:'',who:''})
+  const [expenses,setExpenses] = useState<{id?:string;title:string;amount_usd:number;paid_by:string;paid_by_name:string;created_at?:string}[]>([])
+  const [newExp,setNewExp] = useState({title:'',amount:'',who:'',whoName:''})
+  const [addingExpense,setAddingExpense] = useState(false)
   const [members,setMembers] = useState<{user_id:string;user_name:string;user_email:string;role:string;joined_at:string}[]>([])
   const [notes,setNotes] = useState<{id:string;user_id:string;user_name:string;content:string;pinned:boolean;created_at:string}[]>([])
   const [newNote,setNewNote] = useState('')
@@ -990,7 +991,6 @@ export default function TripPage() {
   const [splits,setSplits] = useState<{from:string;to:string;amount:number}[]>([])
   const [removingMember,setRemovingMember] = useState<string|null>(null)
   const [showSplitModal,setShowSplitModal] = useState(false)
-
   useEffect(() => {
     if (!authLoading && !user) router.replace('/')
   }, [user, authLoading, router])
@@ -1003,11 +1003,26 @@ export default function TripPage() {
         const i = sessionStorage.getItem('tripwise_itinerary')
         const t = sessionStorage.getItem('tripwise_tripdata')
         const savedId = sessionStorage.getItem('tripwise_trip_id')
-        // If URL id matches sessionStorage id, use sessionStorage
+        // If URL id matches sessionStorage id, use sessionStorage for heavy data
         if (v && i && (params.id === 'new' || params.id === savedId)) {
           setViability(JSON.parse(v))
           setItinerary(JSON.parse(i))
           if (t) setTripData(JSON.parse(t))
+          // Still fetch live group data (members, notes, expenses) from DB
+          if (params.id && params.id !== 'new') {
+            try {
+              const mRes = await fetch(`${API}/api/trips/${params.id}/members`)
+              if (mRes.ok) { const mData = await mRes.json(); setMembers(Array.isArray(mData) ? mData : []) }
+            } catch {}
+            try {
+              const nRes = await fetch(`${API}/api/trips/${params.id}/notes`)
+              if (nRes.ok) { const nData = await nRes.json(); setNotes(Array.isArray(nData) ? nData : []) }
+            } catch {}
+            try {
+              const eRes = await fetch(`${API}/api/trips/${params.id}/expenses`)
+              if (eRes.ok) { const eData = await eRes.json(); setExpenses(Array.isArray(eData) ? eData : []) }
+            } catch {}
+          }
           return
         }
       } catch(e) { console.error(e) }
@@ -1031,14 +1046,33 @@ export default function TripPage() {
           // Cache invite code for share tab
           if (full.invite_code) sessionStorage.setItem('tripwise_invite_code', full.invite_code)
           // Fetch members
+          let loadedMembers: typeof members = []
           try {
             const mRes = await fetch(`${API}/api/trips/${params.id}/members`)
-            if (mRes.ok) { const mData = await mRes.json(); setMembers(Array.isArray(mData) ? mData : []) }
+            if (mRes.ok) { const mData = await mRes.json(); loadedMembers = Array.isArray(mData) ? mData : []; setMembers(loadedMembers) }
           } catch {}
+          // Auto-join: if the current user is not yet a member, add them silently
+          // (handles direct shared-link navigation where user wasn't added via invite flow)
+          if (user && !loadedMembers.find((m: any) => m.user_id === user.uid)) {
+            try {
+              await fetch(`${API}/api/trips/${params.id}/members`, {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ user_id: user.uid, user_email: user.email, user_name: user.displayName }),
+              })
+              // Re-fetch members after joining
+              const mRes2 = await fetch(`${API}/api/trips/${params.id}/members`)
+              if (mRes2.ok) { const mData2 = await mRes2.json(); setMembers(Array.isArray(mData2) ? mData2 : []) }
+            } catch {}
+          }
           // Fetch notes
           try {
             const nRes = await fetch(`${API}/api/trips/${params.id}/notes`)
             if (nRes.ok) { const nData = await nRes.json(); setNotes(Array.isArray(nData) ? nData : []) }
+          } catch {}
+          // Fetch expenses
+          try {
+            const eRes = await fetch(`${API}/api/trips/${params.id}/expenses`)
+            if (eRes.ok) { const eData = await eRes.json(); setExpenses(Array.isArray(eData) ? eData : []) }
           } catch {}
         } catch(e) {
           console.error('Failed to load trip from DB:', e)
@@ -1832,95 +1866,103 @@ export default function TripPage() {
             {/* EXPENSES + SPLITWISE */}
             <div className="glass rounded-2xl p-5">
               <h3 className="font-semibold mb-4" style={{color:'var(--text-primary)'}}>Expense tracker</h3>
+              <p className="text-xs mb-4" style={{color:'var(--text-muted)'}}>
+                Expenses are shared in real-time with all trip members.
+              </p>
               <div className="grid grid-cols-1 gap-2 mb-3">
                 <input className="input-field" placeholder="What for? (e.g. Dinner at Tsukiji)"
                   value={newExp.title} onChange={e=>setNewExp(p=>({...p,title:e.target.value}))}/>
                 <div className="grid grid-cols-2 gap-2">
                   <input className="input-field" placeholder="$ Amount" type="number"
                     value={newExp.amount} onChange={e=>setNewExp(p=>({...p,amount:e.target.value}))}/>
-                  {/* Paid by — dropdown of members */}
                   <select className="input-field" value={newExp.who}
-                    onChange={e=>setNewExp(p=>({...p,who:e.target.value}))}>
+                    onChange={e=>{
+                      const m = members.find(m=>m.user_id===e.target.value)
+                      setNewExp(p=>({...p,who:e.target.value,whoName:m?.user_name||m?.user_email||e.target.value}))
+                    }}>
                     <option value="">Paid by...</option>
                     {members.map((m,i)=>(
-                      <option key={i} value={m.user_name||m.user_email||m.user_id}>
+                      <option key={i} value={m.user_id}>
                         {m.user_name||m.user_email||'Member'}
                       </option>
                     ))}
-                    {/* Fallback if no members loaded */}
-                    {members.length===0&&<option value="Me">Me</option>}
+                    {members.length===0&&<option value={user?.uid||'me'}>{user?.displayName||'Me'}</option>}
                   </select>
                 </div>
               </div>
               <button className="btn-secondary w-full flex items-center justify-center gap-2 mb-4"
-                onClick={()=>{
-                  if(newExp.title&&newExp.amount&&newExp.who){
-                    setExpenses(p=>[...p,{title:newExp.title,amount:Number(newExp.amount),who:newExp.who}])
-                    setNewExp({title:'',amount:'',who:''})
-                  }
+                disabled={addingExpense||!newExp.title||!newExp.amount||!newExp.who}
+                onClick={async()=>{
+                  if(!newExp.title||!newExp.amount||!newExp.who||!params.id||params.id==='new') return
+                  setAddingExpense(true)
+                  try {
+                    const payerName = newExp.whoName||(members.find(m=>m.user_id===newExp.who)?.user_name)||newExp.who
+                    const res = await fetch(`${API}/api/trips/${params.id}/expense`,{
+                      method:'POST', headers:{'Content-Type':'application/json'},
+                      body: JSON.stringify({
+                        trip_id: params.id,
+                        paid_by: newExp.who,
+                        paid_by_name: payerName,
+                        title: newExp.title,
+                        amount_usd: Number(newExp.amount),
+                        split_between: members.map(m=>m.user_id),
+                      })
+                    })
+                    if(res.ok){const saved=await res.json();setExpenses(p=>[...p,saved])}
+                    setNewExp({title:'',amount:'',who:'',whoName:''})
+                  }catch(err){console.error(err)}finally{setAddingExpense(false)}
                 }}>
-                <Plus className="w-4 h-4"/>Add expense
+                {addingExpense?<Loader2 className="w-4 h-4 animate-spin"/>:<Plus className="w-4 h-4"/>}
+                Add expense
               </button>
 
               {expenses.length>0&&(
                 <div className="space-y-2 mb-4">
                   {expenses.map((e,i)=>(
-                    <div key={i} className="flex items-center justify-between py-2 px-3 rounded-lg"
+                    <div key={e.id||i} className="flex items-center justify-between py-2 px-3 rounded-lg"
                       style={{background:'var(--bg-3)'}}>
                       <div>
                         <span className="text-sm font-medium" style={{color:'var(--text-primary)'}}>{e.title}</span>
-                        <span className="text-xs ml-2" style={{color:'var(--text-muted)'}}>paid by {e.who}</span>
+                        <span className="text-xs ml-2" style={{color:'var(--text-muted)'}}>paid by {e.paid_by_name}</span>
                       </div>
                       <span className="font-semibold" style={{color:'var(--text-primary)'}}>
-                        ${e.amount.toLocaleString()}
+                        ${e.amount_usd.toLocaleString()}
                       </span>
                     </div>
                   ))}
                   <div className="flex items-center justify-between pt-2" style={{borderTop:'1px solid var(--border)'}}>
                     <span className="font-semibold text-sm" style={{color:'var(--text-primary)'}}>Total spent</span>
                     <span className="font-bold gradient-text font-display">
-                      ${expenses.reduce((s,e)=>s+e.amount,0).toLocaleString()}
+                      ${expenses.reduce((s,e)=>s+e.amount_usd,0).toLocaleString()}
                     </span>
                   </div>
                 </div>
               )}
 
-              {/* Split Bill Button */}
-              {expenses.length > 0 && (
-                <button
-                  onClick={() => setShowSplitModal(true)}
-                  className="btn-primary w-full flex items-center justify-center gap-2 mt-2">
-                  <span>💸</span>
-                  Split bill
-                </button>
-              )}
-
-              {/* SPLITWISE logic */}
               {expenses.length>0&&members.length>0&&(()=>{
-                // Calculate who owes whom
-                const memberNames = members.map(m=>m.user_name||m.user_email||m.user_id)
-                const totalPerPerson = expenses.reduce((s,e)=>s+e.amount,0)/memberNames.length
+                const totalSpent = expenses.reduce((s,e)=>s+e.amount_usd,0)
+                const sharePerPerson = totalSpent/members.length
                 const paid: Record<string,number> = {}
-                memberNames.forEach(n=>{paid[n]=0})
-                expenses.forEach(e=>{if(paid[e.who]!==undefined) paid[e.who]+=e.amount})
+                members.forEach(m=>{paid[m.user_id]=0})
+                expenses.forEach(e=>{if(paid[e.paid_by]!==undefined) paid[e.paid_by]+=e.amount_usd})
                 const balances: Record<string,number> = {}
-                memberNames.forEach(n=>{balances[n]=(paid[n]||0)-totalPerPerson})
-                const creditors = Object.entries(balances).filter(([,v])=>v>0.5).sort((a,b)=>b[1]-a[1])
-                const debtors = Object.entries(balances).filter(([,v])=>v<-0.5).sort((a,b)=>a[1]-b[1])
-                const settlements: {from:string;to:string;amt:number}[] = []
-                const creds = creditors.map(([n,v])=>({n,v}))
-                const debts = debtors.map(([n,v])=>({n,v:Math.abs(v)}))
+                members.forEach(m=>{balances[m.user_id]=(paid[m.user_id]||0)-sharePerPerson})
+                const nameOf=(uid:string)=>members.find(m=>m.user_id===uid)?.user_name||members.find(m=>m.user_id===uid)?.user_email||uid
+                const creditors=Object.entries(balances).filter(([,v])=>v>0.5).sort((a,b)=>b[1]-a[1])
+                const debtors=Object.entries(balances).filter(([,v])=>v<-0.5).sort((a,b)=>a[1]-b[1])
+                const settlements:{from:string;to:string;amt:number}[]=[]
+                const creds=creditors.map(([id,v])=>({id,v}))
+                const debts=debtors.map(([id,v])=>({id,v:Math.abs(v)}))
                 let ci=0,di=0
                 while(ci<creds.length&&di<debts.length){
                   const pay=Math.min(creds[ci].v,debts[di].v)
-                  if(pay>0.5) settlements.push({from:debts[di].n,to:creds[ci].n,amt:Math.round(pay*100)/100})
-                  creds[ci].v-=pay; debts[di].v-=pay
-                  if(creds[ci].v<0.5) ci++
-                  if(debts[di].v<0.5) di++
+                  if(pay>0.5) settlements.push({from:nameOf(debts[di].id),to:nameOf(creds[ci].id),amt:Math.round(pay*100)/100})
+                  creds[ci].v-=pay;debts[di].v-=pay
+                  if(creds[ci].v<0.5)ci++;if(debts[di].v<0.5)di++
                 }
                 return settlements.length>0?(
                   <div className="mt-3 p-4 rounded-xl" style={{background:'rgba(45,212,160,0.06)',border:'1px solid rgba(45,212,160,0.2)'}}>
-                    <p className="text-xs font-semibold mb-3" style={{color:'#2dd4a0'}}>WHO PAYS WHOM</p>
+                    <p className="text-xs font-semibold mb-3" style={{color:'#2dd4a0'}}>💸 WHO PAYS WHOM</p>
                     <div className="space-y-2">
                       {settlements.map((s,i)=>(
                         <div key={i} className="flex items-center gap-2">
@@ -1931,12 +1973,13 @@ export default function TripPage() {
                         </div>
                       ))}
                     </div>
+                    <p className="text-xs mt-3" style={{color:'var(--text-muted)'}}>Each person's share: ${sharePerPerson.toFixed(2)}</p>
                   </div>
                 ):null
               })()}
             </div>
 
-            {/* GROUP NOTES */}
+                        {/* GROUP NOTES */}
             <div className="glass rounded-2xl p-5">
               <h3 className="font-semibold mb-4" style={{color:'var(--text-primary)'}}>Group notes</h3>
               <p className="text-xs mb-4" style={{color:'var(--text-muted)'}}>
