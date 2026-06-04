@@ -173,51 +173,79 @@ Return ONLY raw JSON (no markdown fences):
     "avoid": ["Thing to avoid 1"]
   }},
   "packing_list": {{
+    "documents": [
+      {{"item": "Passport (check 6+ months validity)", "essential": true, "reason": "Required at immigration — check expiry before travel"}},
+      {{"item": "Visa / e-Visa printout", "essential": true, "reason": "Show at check-in and immigration if required for destination"}},
+      {{"item": "Aadhaar Card / National ID", "essential": true, "reason": "Required for domestic flights and some hotels"}},
+      {{"item": "Travel insurance policy printout", "essential": true, "reason": "Medical emergencies abroad — carry insurer's 24hr number"}},
+      {{"item": "Flight e-tickets (printed + phone)", "essential": true, "reason": "Some airports require printed boarding pass"}},
+      {{"item": "Hotel / accommodation confirmations", "essential": true, "reason": "May be asked at immigration as proof of stay"}},
+      {{"item": "Emergency contacts list (paper)", "essential": true, "reason": "If phone dies or is stolen"}},
+      {{"item": "International driving permit", "essential": false, "reason": "Only if renting a vehicle at destination"}},
+      {{"item": "Priority Pass / Lounge card", "essential": false, "reason": "If you have airport lounge access — check eligibility"}},
+      {{"item": "Credit card travel insurance proof", "essential": false, "reason": "Some cards cover travel — carry the letter"}}
+    ],
     "clothing": [
-      {{"item": "Light breathable t-shirts (5)", "essential": true, "reason": "Hot humid weather"}},
-      {{"item": "Comfortable walking shoes", "essential": true, "reason": "15,000+ steps daily"}},
-      {{"item": "Slip-on shoes", "essential": true, "reason": "Temples require shoe removal"}},
-      {{"item": "Light rain jacket", "essential": true, "reason": "Sudden afternoon showers"}},
-      {{"item": "Swimwear", "essential": false, "reason": "If visiting beaches or hotel pool"}}
+      {{"item": "Breathable t-shirts / shirts (quantity based on trip length)", "essential": true, "reason": "Pack based on laundry access — 1 per day or 4-5 + laundry midtrip"}},
+      {{"item": "Comfortable walking shoes (broken in)", "essential": true, "reason": "Expect 12,000-18,000 steps daily sightseeing — new shoes = blisters"}},
+      {{"item": "Smart-casual outfit (1-2)", "essential": false, "reason": "Upscale restaurants, rooftop bars, or cultural sites with dress codes"}},
+      {{"item": "Underwear + socks (1 per day + spare)", "essential": true, "reason": "Pack slightly more than days — laundry may not always be available"}},
+      {{"item": "Light jacket or layer", "essential": true, "reason": "AC in malls, restaurants, flights is often very cold regardless of outdoor heat"}},
+      {{"item": "Swimwear", "essential": false, "reason": "For hotel pools, beaches, or water activities at destination"}},
+      {{"item": "Slip-on sandals / flip flops", "essential": false, "reason": "Temple visits, beach, hostel showers, casual evenings"}},
+      {{"item": "Light scarf / sarong", "essential": false, "reason": "Modesty at religious sites + doubles as blanket on cold flights"}}
     ],
     "toiletries": [
-      {{"item": "Toothbrush and toothpaste", "essential": true, "reason": "Often forgotten"}},
-      {{"item": "Sunscreen SPF 50+", "essential": true, "reason": "Strong UV rays"}},
-      {{"item": "Insect repellent", "essential": true, "reason": "Mosquitoes at temples and parks"}},
-      {{"item": "Deodorant", "essential": true, "reason": "Hot weather"}},
-      {{"item": "Wet wipes", "essential": false, "reason": "Useful for street food eating"}}
-    ],
-    "documents": [
-      {{"item": "Passport (6+ months validity)", "essential": true, "reason": "Required for entry"}},
-      {{"item": "Visa printout / e-visa", "essential": true, "reason": "Required at immigration"}},
-      {{"item": "Travel insurance card", "essential": true, "reason": "Medical emergencies"}},
-      {{"item": "Hotel booking confirmations", "essential": true, "reason": "May be asked at immigration"}},
-      {{"item": "Emergency contact list", "essential": true, "reason": "Keep separate from phone"}}
+      {{"item": "Toothbrush + toothpaste (travel size)", "essential": true, "reason": "Basic hygiene — travel size for carry-on"}},
+      {{"item": "Shampoo + conditioner (travel size)", "essential": true, "reason": "Hotel supplies are often poor quality"}},
+      {{"item": "Deodorant", "essential": true, "reason": "Essential especially in warm climates"}},
+      {{"item": "Sunscreen SPF 50+", "essential": true, "reason": "Strong UV at destination — apply daily"}},
+      {{"item": "Moisturiser / lip balm", "essential": false, "reason": "Air conditioning and sun can dry out skin"}},
+      {{"item": "Razor + shaving foam", "essential": false, "reason": "Pack in checked luggage if >100ml"}},
+      {{"item": "Wet wipes / hand sanitiser", "essential": true, "reason": "Street food, public transport, no soap available"}},
+      {{"item": "Insect repellent (DEET 30%+)", "essential": true, "reason": "Mosquitoes active at destination — prevents bites"}},
+      {{"item": "Feminine hygiene products", "essential": false, "reason": "Pack enough — availability varies by country"}},
+      {{"item": "Mini first aid kit (plasters, antiseptic)", "essential": true, "reason": "Blisters from walking, minor cuts"}}
     ],
     "electronics": [
-      {{"item": "Power adapter (Type X)", "essential": true, "reason": "Different socket type"}},
-      {{"item": "Power bank 20,000mAh", "essential": true, "reason": "Long days of navigation"}},
-      {{"item": "Camera or phone with good camera", "essential": false, "reason": "Memorable landscapes"}},
-      {{"item": "Earphones", "essential": false, "reason": "Long flights and commutes"}}
+      {{"item": "Phone charger + cable", "essential": true, "reason": "Primary navigation and communication device"}},
+      {{"item": "Power bank 20,000 mAh", "essential": true, "reason": "Long days out without outlets — charge phone 3-4 times"}},
+      {{"item": "Universal power adapter", "essential": true, "reason": "Check socket type for destination country"}},
+      {{"item": "Earphones / AirPods", "essential": false, "reason": "Long flights, noisy hostels, audio guides"}},
+      {{"item": "Camera + memory cards", "essential": false, "reason": "Better shots than phone in low light and landscapes"}},
+      {{"item": "Laptop / tablet + charger", "essential": false, "reason": "Only if working remotely or need large screen"}},
+      {{"item": "E-reader / Kindle", "essential": false, "reason": "Long transit times — lighter than physical books"}},
+      {{"item": "Portable WiFi device (or local SIM)", "essential": true, "reason": "Offline maps fail — stay connected for navigation and emergencies"}}
     ],
     "medications": [
-      {{"item": "Personal prescription medications", "essential": true, "reason": "Bring extra supply"}},
-      {{"item": "Antidiarrheal tablets", "essential": true, "reason": "New cuisine adjustment"}},
-      {{"item": "Antihistamines", "essential": true, "reason": "Allergies and insect bites"}},
-      {{"item": "Paracetamol / Ibuprofen", "essential": true, "reason": "Headaches, fever"}},
-      {{"item": "Motion sickness tablets", "essential": false, "reason": "If taking boat or winding roads"}}
+      {{"item": "All personal prescription medications (2-week extra supply)", "essential": true, "reason": "Cannot always source abroad — carry in original packaging"}},
+      {{"item": "Paracetamol + Ibuprofen", "essential": true, "reason": "Headaches, fever, inflammation from walking"}},
+      {{"item": "Oral Rehydration Salts (ORS sachets)", "essential": true, "reason": "Food poisoning recovery — electrolyte replacement"}},
+      {{"item": "Antidiarrheal tablets (Loperamide)", "essential": true, "reason": "Street food and new cuisines can upset digestion"}},
+      {{"item": "Antihistamines", "essential": true, "reason": "Allergies, insect bites, dust — non-drowsy for day use"}},
+      {{"item": "Motion sickness tablets", "essential": false, "reason": "If taking boats, winding mountain roads, or prone to nausea"}},
+      {{"item": "Antacids / indigestion tablets", "essential": false, "reason": "Rich or spicy local food"}},
+      {{"item": "Eye drops (lubricating)", "essential": false, "reason": "Dry eyes from AC and long flights"}}
     ],
     "money": [
-      {{"item": "Cash in local currency", "essential": true, "reason": "Many places cash only"}},
-      {{"item": "2 debit / credit cards", "essential": true, "reason": "In case one is blocked abroad"}},
-      {{"item": "Card copies (photo on phone)", "essential": true, "reason": "If card is lost"}}
+      {{"item": "Cash in local currency (destination)", "essential": true, "reason": "Markets, street food, small vendors — many are cash-only"}},
+      {{"item": "2 × debit/credit cards (different networks)", "essential": true, "reason": "One Visa + one Mastercard in case one is blocked or declined"}},
+      {{"item": "Notify bank of travel dates", "essential": true, "reason": "Banks freeze cards for unusual foreign transactions — do this before you leave"}},
+      {{"item": "Small emergency cash in USD/EUR", "essential": true, "reason": "Universally accepted if local ATMs fail"}},
+      {{"item": "Forex card or travel card (Wise/Niyo)", "essential": false, "reason": "Better exchange rates and lower ATM fees than regular debit cards"}},
+      {{"item": "Digital copies of all cards (secure cloud)", "essential": true, "reason": "If wallet is stolen you can cancel immediately"}}
     ],
     "misc": [
-      {{"item": "Small daypack / backpack", "essential": true, "reason": "Daily explorations"}},
-      {{"item": "Reusable water bottle", "essential": true, "reason": "Stay hydrated, reduce plastic"}},
-      {{"item": "Padlock for hostel lockers", "essential": false, "reason": "If staying in hostels"}},
-      {{"item": "Travel pillow", "essential": false, "reason": "Long flights"}},
-      {{"item": "Portable WiFi or local SIM", "essential": true, "reason": "Navigation and communication"}}
+      {{"item": "20-30L daypack / backpack", "essential": true, "reason": "Daily sightseeing — fits water, jacket, snacks, camera"}},
+      {{"item": "Reusable water bottle (insulated)", "essential": true, "reason": "Stay hydrated, save money, reduce plastic waste"}},
+      {{"item": "Padlock (TSA-approved)", "essential": true, "reason": "Checked luggage security + hostel lockers"}},
+      {{"item": "Travel pillow + eye mask + earplugs", "essential": false, "reason": "Overnight flights or noisy accommodations"}},
+      {{"item": "Lightweight rain poncho", "essential": false, "reason": "Folds to fist-size — saves you from getting soaked"}},
+      {{"item": "Packing cubes (set of 3)", "essential": false, "reason": "Keeps luggage organised — clothes, toiletries, electronics separated"}},
+      {{"item": "Luggage tags (with contact info)", "essential": true, "reason": "Helps airline return lost bag faster"}},
+      {{"item": "Ziplock bags (5-6 assorted sizes)", "essential": false, "reason": "Wet clothes, liquids in carry-on, snacks, document protection"}},
+      {{"item": "Travel towel (quick-dry)", "essential": false, "reason": "Budget hotels may not provide — dries in 1 hour"}},
+      {{"item": "Portable door alarm / cable lock", "essential": false, "reason": "Extra security at budget guesthouses"}}
     ]
   }},
   "budget_summary": {{

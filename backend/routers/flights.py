@@ -272,16 +272,25 @@ Return ONLY raw JSON."""
 
 @router.post("/hotels")
 async def search_hotels(req: HotelRequest):
+    nights = 1
+    try:
+        from datetime import datetime
+        d1 = datetime.strptime(req.check_in, "%Y-%m-%d")
+        d2 = datetime.strptime(req.check_out, "%Y-%m-%d")
+        nights = max(1, (d2 - d1).days)
+    except Exception:
+        pass
+
     prompt = f"""Generate comprehensive hotel search results for {req.destination}.
 
-Check-in: {req.check_in}, Check-out: {req.check_out}
-Guests: {req.adults}, Type: {req.stay_type}, Budget: ${req.budget_per_night_usd}/night
+Check-in: {req.check_in}, Check-out: {req.check_out} ({nights} nights)
+Guests: {req.adults}, Type: {req.stay_type}, Max budget: ${req.budget_per_night_usd}/night
 
-Return ONLY raw JSON:
+Return ONLY raw JSON with this exact structure:
 {{
   "destination": "{req.destination}",
   "search_summary": "X options found across Y areas",
-  "recommended_area": "Best area to stay",
+  "recommended_area": "Best area name and why in one sentence",
   "area_guide": [
     {{
       "area": "Area name",
@@ -296,13 +305,13 @@ Return ONLY raw JSON:
   "results": [
     {{
       "id": "H001",
-      "name": "Specific real hotel name",
+      "name": "REAL specific hotel name that exists in {req.destination}",
       "type": "hotel",
       "category": "budget",
       "chain_or_local": "local",
       "area": "Neighbourhood name",
-      "lat": 35.7148,
-      "lng": 139.7967,
+      "lat": 0.0000,
+      "lng": 0.0000,
       "stars": 3,
       "rating": 8.4,
       "rating_label": "Very Good",
@@ -312,91 +321,71 @@ Return ONLY raw JSON:
       "badge": "Best Value",
       "amenities": ["Free WiFi", "Breakfast $8", "Metro 3 min walk"],
       "distance_to_center": "1.2 km",
-      "distance_to_main_attraction": "800m to Senso-ji Temple",
-      "nearby_metro": "Asakusa Station — 3 min walk",
-      "why_recommended": "Perfect base for exploring east Tokyo",
+      "distance_from_airport": "22 km / 35 min by train",
+      "nearest_transit": "Station name — X min walk",
+      "nearest_metro": "Metro/Subway station — 3 min walk",
+      "why_recommended": "One sentence on why this is a great pick",
       "free_cancellation": true,
       "breakfast_included": false,
-      "google_maps_search": "hotel name city",
-      "booking_link": "https://www.booking.com",
-      "compare_links": [
-        {{"platform": "Booking.com", "url": "https://www.booking.com", "note": "Best cancellation policy"}},
-        {{"platform": "Hotels.com", "url": "https://www.hotels.com", "note": "Earn free nights"}},
-        {{"platform": "Agoda", "url": "https://www.agoda.com", "note": "Best prices in Asia"}}
-      ]
-    }},
-    {{
-      "id": "H002",
-      "name": "Chain hotel name (e.g. Marriott, Hilton, IHG)",
-      "type": "hotel",
-      "category": "mid-range",
-      "chain_or_local": "chain",
-      "area": "Central area",
-      "stars": 4,
-      "rating": 8.8,
-      "rating_label": "Excellent",
-      "reviews_count": 3200,
-      "price_per_night_usd": 120,
-      "total_usd": 840,
-      "badge": "Top Rated",
-      "amenities": ["Free WiFi", "Pool", "Gym", "Restaurant", "Concierge"],
-      "distance_to_center": "0.3 km",
-      "distance_to_main_attraction": "500m to main landmark",
-      "nearby_metro": "Central Station — 1 min walk",
-      "why_recommended": "Brand reliability, great loyalty points",
-      "free_cancellation": true,
-      "breakfast_included": true,
-      "google_maps_search": "hotel name area city",
-      "booking_link": "https://www.booking.com",
-      "compare_links": [
-        {{"platform": "Booking.com", "url": "https://www.booking.com", "note": ""}},
-        {{"platform": "Official site", "url": "https://marriott.com", "note": "Best rate guarantee + points"}}
-      ]
-    }},
-    {{
-      "id": "H003",
-      "name": "Local guesthouse or boutique name",
-      "type": "guesthouse",
-      "category": "budget",
-      "chain_or_local": "local",
-      "area": "Authentic neighbourhood",
-      "stars": 2,
-      "rating": 9.1,
-      "rating_label": "Superb",
-      "reviews_count": 420,
-      "price_per_night_usd": 35,
-      "total_usd": 245,
-      "badge": "Hidden Gem",
-      "amenities": ["Free WiFi", "Common kitchen", "Local tips from owner"],
-      "distance_to_center": "2.5 km",
-      "distance_to_main_attraction": "1.2 km to local market",
-      "why_recommended": "Authentic local experience, owner gives great tips",
-      "free_cancellation": false,
-      "breakfast_included": true,
-      "google_maps_search": "guesthouse name city",
-      "booking_link": "https://www.airbnb.com",
-      "compare_links": [
-        {{"platform": "Airbnb", "url": "https://www.airbnb.com", "note": "Best for unique stays"}},
-        {{"platform": "Booking.com", "url": "https://www.booking.com", "note": ""}}
+      "platform_prices": [
+        {{
+          "platform": "Booking.com",
+          "price_per_night_usd": 65,
+          "total_usd": {65 * nights},
+          "note": "Free cancellation",
+          "url": "https://www.booking.com/searchresults.html?ss={req.destination}&checkin={req.check_in}&checkout={req.check_out}&group_adults={req.adults}"
+        }},
+        {{
+          "platform": "Agoda",
+          "price_per_night_usd": 61,
+          "total_usd": {61 * nights},
+          "note": "Members deal",
+          "url": "https://www.agoda.com/search?city={req.destination}&checkIn={req.check_in}&checkOut={req.check_out}&adults={req.adults}"
+        }},
+        {{
+          "platform": "Hotels.com",
+          "price_per_night_usd": 68,
+          "total_usd": {68 * nights},
+          "note": "Earns reward nights",
+          "url": "https://www.hotels.com/search.do?q-destination={req.destination}&q-check-in={req.check_in}&q-check-out={req.check_out}"
+        }},
+        {{
+          "platform": "Expedia",
+          "price_per_night_usd": 70,
+          "total_usd": {70 * nights},
+          "note": "Bundle with flight",
+          "url": "https://www.expedia.com/Hotel-Search?destination={req.destination}&startDate={req.check_in}&endDate={req.check_out}&adults={req.adults}"
+        }},
+        {{
+          "platform": "Direct / official site",
+          "price_per_night_usd": 63,
+          "total_usd": {63 * nights},
+          "note": "Often cheapest + free upgrades",
+          "url": "https://www.google.com/search?q=official+website+HOTEL_NAME+{req.destination}"
+        }}
       ]
     }}
   ],
   "booking_tips": [
-    "Book 4-6 weeks ahead for best prices",
-    "Free cancellation gives flexibility if plans change",
-    "Local guesthouses often have better value than chain hotels"
+    "Book 4-6 weeks ahead for best prices in {req.destination}",
+    "Free cancellation gives flexibility if plans change — always prefer it",
+    "Check hotel official website LAST — they often beat OTA prices by 5-15%"
   ],
-  "comparison_platforms": [
-    {{"name": "Booking.com", "url": "https://www.booking.com", "best_for": "Widest selection, free cancellation"}},
-    {{"name": "Hotels.com", "url": "https://www.hotels.com", "best_for": "Loyalty rewards — 10 nights = 1 free"}},
-    {{"name": "Agoda", "url": "https://www.agoda.com", "best_for": "Asia-Pacific destinations"}},
-    {{"name": "Airbnb", "url": "https://www.airbnb.com", "best_for": "Apartments, homes, unique stays"}},
-    {{"name": "Hostelworld", "url": "https://www.hostelworld.com", "best_for": "Hostels and budget stays"}}
+  "transit_hubs": [
+    {{
+      "name": "Main transit hub name",
+      "lat": 0.0,
+      "lng": 0.0,
+      "lines": "Metro lines or bus routes",
+      "distance_from_center": "0 km — city center"
+    }}
   ]
 }}
 
-Generate 5 real hotel options in {req.destination} — mix of budget/mid/luxury and local/chain.
-Include REAL lat/lng coordinates for each hotel in {req.destination}.
+Generate 5-6 REAL hotels in {req.destination} — mix of budget/mid/luxury and local/chain.
+For platform_prices: vary the prices realistically (±10-15% between platforms) — simulate actual cross-platform comparison.
+Mark the cheapest platform clearly in the note field (add "✓ Cheapest" to that entry).
+Use REAL lat/lng coordinates for {req.destination}. 
 Return ONLY raw JSON."""
 
     try:

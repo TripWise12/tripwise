@@ -11,6 +11,13 @@ import {
 } from 'lucide-react'
 import { useAuth } from '@/context/AuthContext'
 import { signInWithGoogle, signOutUser } from '@/lib/firebase'
+import { motion, AnimatePresence } from 'framer-motion'
+import {
+  fadeUp, fadeIn, scaleIn, staggerContainer, staggerItem,
+  heroContainer, heroItem, cardHover, destCardHover,
+  buttonTap, buttonHover, modalBackdrop, modalPanel,
+  staggerContainerFast, viewportOnce
+} from '@/lib/animations'
 
 const DESTINATIONS = ['Tokyo', 'Bali', 'Paris', 'New York', 'London', 'Bangkok', 'Dubai', 'Singapore', 'Rome', 'Sydney']
 const ORIGIN_CITIES = ['Mumbai', 'Delhi', 'Bangalore', 'Hyderabad', 'Chennai', 'Pune', 'Kolkata', 'London', 'New York', 'Dubai', 'Singapore', 'Sydney', 'Toronto']
@@ -386,71 +393,88 @@ export default function HomePage() {
 
       {/* Hero */}
       <section className="relative z-10 pt-20 pb-16 px-6 text-center">
-        <div className="inline-flex items-center gap-2 mb-8 px-4 py-2 rounded-full reveal"
-          style={{ background: 'rgba(201,168,76,0.08)', border: '1px solid rgba(201,168,76,0.22)' }}>
-          <Sparkles className="w-3.5 h-3.5" style={{ color: 'var(--gold)' }} />
-          <span className="text-xs font-semibold tracking-widest" style={{ color: 'var(--gold-light)' }}>
-            AI-POWERED TRAVEL INTELLIGENCE
-          </span>
-        </div>
+        <motion.div
+          variants={heroContainer}
+          initial="hidden"
+          animate="visible"
+          className="flex flex-col items-center"
+        >
+          {/* Badge */}
+          <motion.div variants={heroItem}
+            className="inline-flex items-center gap-2 mb-8 px-4 py-2 rounded-full"
+            style={{ background: 'rgba(201,168,76,0.08)', border: '1px solid rgba(201,168,76,0.22)' }}>
+            <Sparkles className="w-3.5 h-3.5" style={{ color: 'var(--gold)' }} />
+            <span className="text-xs font-semibold tracking-widest" style={{ color: 'var(--gold-light)' }}>
+              AI-POWERED TRAVEL INTELLIGENCE
+            </span>
+          </motion.div>
 
-        <h1 className="font-display text-5xl md:text-7xl font-bold mb-4 leading-tight reveal"
-          style={{ transitionDelay: '100ms' }}>
-          <span style={{ color: 'var(--text-primary)' }}>Plan your trip to</span>
-          <br />
-          <span className="gradient-text typewriter-cursor" style={{ minHeight: '1.2em', display: 'inline-block' }}>
-            {typed}
-          </span>
-        </h1>
+          {/* Headline */}
+          <motion.h1 variants={heroItem}
+            className="font-display text-5xl md:text-7xl font-bold mb-4 leading-tight">
+            <span style={{ color: 'var(--text-primary)' }}>Plan your trip to</span>
+            <br />
+            <span className="gradient-text typewriter-cursor" style={{ minHeight: '1.2em', display: 'inline-block' }}>
+              {typed}
+            </span>
+          </motion.h1>
 
-        <p className="text-lg md:text-xl mb-10 max-w-2xl mx-auto reveal"
-          style={{ color: 'var(--text-secondary)', lineHeight: 1.8, transitionDelay: '200ms' }}>
-          From "I want to travel" to fully planned trip in under 2 minutes.
-          Flights, hotels, itinerary, packing, group coordination — all personalized.
-        </p>
+          {/* Subline */}
+          <motion.p variants={heroItem}
+            className="text-lg md:text-xl mb-10 max-w-2xl mx-auto"
+            style={{ color: 'var(--text-secondary)', lineHeight: 1.8 }}>
+            From &quot;I want to travel&quot; to fully planned trip in under 2 minutes.
+            Flights, hotels, itinerary, packing, group coordination — all personalized.
+          </motion.p>
 
-        {/* Quick start card */}
-        <div className="liquid-card rounded-2xl p-6 max-w-2xl mx-auto mb-12 reveal"
-          style={{ transitionDelay: '300ms', boxShadow: '0 0 80px rgba(201,168,76,0.06)' }}>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
-            <div className="relative">
-              <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: 'var(--text-muted)' }} />
-              <input className="input-field pl-9" placeholder="Flying from (any city)"
-                value={quickOrigin} onChange={e => setQuickOrigin(e.target.value)} list="origins-list" />
-              <datalist id="origins-list">
-                {ORIGIN_CITIES.map(c => <option key={c} value={c} />)}
-              </datalist>
-            </div>
-            <div className="relative">
-              <Globe className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: 'var(--text-muted)' }} />
-              <input className="input-field pl-9" placeholder="Where to? (e.g. Tokyo)"
-                value={quickDest} onChange={e => setQuickDest(e.target.value)}
-                onKeyDown={e => e.key === 'Enter' && handlePlanTrip()} />
-            </div>
-            <button className="btn-primary flex items-center justify-center gap-2" onClick={handlePlanTrip}>
-              {user ? <><ArrowRight className="w-4 h-4" />Plan my trip</> : <><User className="w-4 h-4" />Sign in to plan</>}
-            </button>
-          </div>
-          <div className="flex items-center justify-center gap-6 flex-wrap">
-            {['Any origin city', 'International & domestic', 'Free to start'].map((item, i) => (
-              <div key={i} className="flex items-center gap-1.5">
-                <div className="w-1.5 h-1.5 rounded-full" style={{ background: 'var(--gold)' }} />
-                <span className="text-xs" style={{ color: 'var(--text-muted)' }}>{item}</span>
+          {/* Search card */}
+          <motion.div variants={heroItem}
+            className="liquid-card rounded-2xl p-6 max-w-2xl mx-auto mb-12 w-full"
+            style={{ boxShadow: '0 0 80px rgba(201,168,76,0.06)' }}>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
+              <div className="relative">
+                <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: 'var(--text-muted)' }} />
+                <input className="input-field pl-9" placeholder="Flying from (any city)"
+                  value={quickOrigin} onChange={e => setQuickOrigin(e.target.value)} list="origins-list" />
+                <datalist id="origins-list">
+                  {ORIGIN_CITIES.map(c => <option key={c} value={c} />)}
+                </datalist>
               </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Stats */}
-        <div className="flex items-center justify-center gap-8 md:gap-16 flex-wrap reveal stagger"
-          style={{ transitionDelay: '400ms' }}>
-          {[{ v: '2 min', l: 'Avg planning time' }, { v: 'AI', l: 'Powered planning' }, { v: 'Free', l: 'To start' }].map(({ v, l }) => (
-            <div key={l} className="text-center">
-              <div className="font-display text-3xl font-bold gradient-text">{v}</div>
-              <div className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>{l}</div>
+              <div className="relative">
+                <Globe className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: 'var(--text-muted)' }} />
+                <input className="input-field pl-9" placeholder="Where to? (e.g. Tokyo)"
+                  value={quickDest} onChange={e => setQuickDest(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && handlePlanTrip()} />
+              </div>
+              <motion.button
+                className="btn-primary flex items-center justify-center gap-2"
+                onClick={handlePlanTrip}
+                whileHover={buttonHover}
+                whileTap={buttonTap}>
+                {user ? <><ArrowRight className="w-4 h-4" />Plan my trip</> : <><User className="w-4 h-4" />Sign in to plan</>}
+              </motion.button>
             </div>
+            <div className="flex items-center justify-center gap-6 flex-wrap">
+              {['Any origin city', 'International & domestic', 'Free to start'].map((item, i) => (
+                <div key={i} className="flex items-center gap-1.5">
+                  <div className="w-1.5 h-1.5 rounded-full" style={{ background: 'var(--gold)' }} />
+                  <span className="text-xs" style={{ color: 'var(--text-muted)' }}>{item}</span>
+                </div>
+              ))}
+            </div>
+          </motion.div>
+
+          {/* Stats */}
+          <motion.div variants={heroItem}
+            className="flex items-center justify-center gap-8 md:gap-16 flex-wrap">
+            {[{ v: '2 min', l: 'Avg planning time' }, { v: 'AI', l: 'Powered planning' }, { v: 'Free', l: 'To start' }].map(({ v, l }) => (
+              <div key={l} className="text-center">
+                <div className="font-display text-3xl font-bold gradient-text">{v}</div>
+                <div className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>{l}</div>
+              </div>
           ))}
-        </div>
+          </motion.div>
+        </motion.div>
       </section>
 
       {/* Solid background starts here — covers the fixed hero image below */}
@@ -475,39 +499,45 @@ export default function HomePage() {
               Popular destinations
             </h2>
           </div>
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-3 stagger">
+          <motion.div
+            variants={staggerContainer}
+            initial="hidden"
+            whileInView="visible"
+            viewport={viewportOnce}
+            className="grid grid-cols-2 md:grid-cols-5 gap-3"
+          >
             {DEST_IMAGES.map(({ city, country, img, emoji }, i) => (
-              <button key={city}
+              <motion.button key={city}
+                variants={staggerItem}
+                whileHover={{ y: -8, scale: 1.035, transition: { duration: 0.28, ease: [0.22,1,0.36,1] } }}
+                whileTap={{ scale: 0.97 }}
                 onClick={() => { setQuickDest(city); handlePlanTrip() }}
-                className="relative rounded-2xl overflow-hidden group reveal"
-                style={{ aspectRatio: '3/4', transitionDelay: `${i * 50}ms` }}>
+                className="relative rounded-2xl overflow-hidden group"
+                style={{ aspectRatio: '3/4' }}>
                 {/* Image */}
-                <img
-                  src={img}
-                  alt={city}
-                  className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
-                />
+                <img src={img} alt={city}
+                  className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" />
                 {/* Gradient overlay */}
                 <div className="absolute inset-0 transition-opacity duration-300"
                   style={{ background: 'linear-gradient(to top, rgba(6,9,18,0.95) 0%, rgba(6,9,18,0.3) 50%, transparent 100%)' }} />
                 {/* Gold shimmer on hover */}
                 <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300"
-                  style={{ background: 'linear-gradient(135deg, rgba(201,168,76,0.15) 0%, transparent 60%)' }} />
+                  style={{ background: 'linear-gradient(135deg, rgba(201,168,76,0.18) 0%, transparent 60%)' }} />
                 {/* Text */}
                 <div className="absolute bottom-0 left-0 right-0 p-3">
                   <p className="font-display font-bold text-sm" style={{ color: 'white' }}>{city}</p>
                   <p className="text-xs" style={{ color: 'rgba(255,255,255,0.6)' }}>{emoji} {country}</p>
                 </div>
-                {/* Plan button that appears on hover */}
+                {/* Plan pill on hover */}
                 <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200">
                   <span className="text-xs font-semibold px-3 py-1.5 rounded-full"
-                    style={{ background: 'rgba(201,168,76,0.9)', color: '#060912' }}>
+                    style={{ background: 'rgba(201,168,76,0.92)', color: '#060912' }}>
                     Plan trip →
                   </span>
                 </div>
-              </button>
+              </motion.button>
             ))}
-          </div>
+          </motion.div>
         </div>
       </section>
 
@@ -594,10 +624,18 @@ export default function HomePage() {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+          <motion.div
+            variants={staggerContainer}
+            initial="hidden"
+            whileInView="visible"
+            viewport={viewportOnce}
+            className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6"
+          >
             {TOKYO_EXAMPLE.days.map((day, i) => (
-              <div key={i} className="glass feature-card rounded-2xl p-5 reveal card-enter"
-                style={{ transitionDelay: `${i * 80}ms`, animationDelay: `${i * 80}ms` }}>
+              <motion.div key={i}
+                variants={staggerItem}
+                whileHover={{ y: -5, scale: 1.015, transition: { duration: 0.25, ease: [0.22,1,0.36,1] } }}
+                className="glass feature-card rounded-2xl p-5">
                 <div className="flex items-center justify-between mb-3">
                   <span className="badge badge-gold">Day {day.day}</span>
                   <span className="text-xs font-mono" style={{ color: 'var(--text-muted)' }}>{day.cost}</span>
@@ -611,9 +649,9 @@ export default function HomePage() {
                     </div>
                   ))}
                 </div>
-              </div>
+              </motion.div>
             ))}
-          </div>
+          </motion.div>
 
           <div className="glass rounded-2xl p-6 mb-8 reveal">
             <p className="section-label mb-4">Budget breakdown per person</p>
@@ -660,26 +698,40 @@ export default function HomePage() {
               Every tool you need from planning to landing — built into one platform.
             </p>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 stagger">
-            {FEATURES.map(({ icon: Icon, label, desc, color }, i) => (
-              <div key={label} className="glass feature-card rounded-2xl p-6 reveal"
-                style={{ transitionDelay: `${(i % 3) * 80}ms` }}>
+          <motion.div
+            variants={staggerContainer}
+            initial="hidden"
+            whileInView="visible"
+            viewport={viewportOnce}
+            className="grid grid-cols-1 md:grid-cols-3 gap-4"
+          >
+            {FEATURES.map(({ icon: Icon, label, desc, color }) => (
+              <motion.div key={label}
+                variants={staggerItem}
+                whileHover={{ y: -6, scale: 1.02, transition: { duration: 0.25, ease: [0.22,1,0.36,1] } }}
+                className="glass feature-card rounded-2xl p-6 cursor-default">
                 <div className="w-11 h-11 rounded-xl flex items-center justify-center mb-4"
                   style={{ background: `${color}18`, border: `1px solid ${color}28` }}>
                   <Icon className="w-5 h-5" style={{ color }} />
                 </div>
                 <h3 className="font-semibold mb-2" style={{ color: 'var(--text-primary)' }}>{label}</h3>
                 <p className="text-sm" style={{ color: 'var(--text-secondary)', lineHeight: 1.7 }}>{desc}</p>
-              </div>
+              </motion.div>
             ))}
-          </div>
+          </motion.div>
         </div>
       </section>
 
       {/* CTA */}
       <div className="gold-line mx-6 md:mx-12" />
       <section className="relative z-10 py-24 px-6">
-        <div className="max-w-2xl mx-auto text-center reveal">
+        <motion.div
+          className="max-w-2xl mx-auto text-center"
+          variants={fadeUp}
+          initial="hidden"
+          whileInView="visible"
+          viewport={viewportOnce}
+        >
           <h2 className="font-display text-5xl font-bold mb-6" style={{ color: 'var(--text-primary)' }}>
             Ready to plan smarter?
           </h2>
@@ -688,13 +740,17 @@ export default function HomePage() {
               ? `Welcome back, ${user.displayName?.split(' ')[0]}. Start your next trip.`
               : 'Sign in with Google. No account needed separately.'}
           </p>
-          <button className="btn-primary text-lg px-10 py-4 flex items-center gap-3 mx-auto"
-            onClick={handlePlanTrip}>
+          <motion.button
+            className="btn-primary text-lg px-10 py-4 flex items-center gap-3 mx-auto"
+            onClick={handlePlanTrip}
+            whileHover={{ scale: 1.04, boxShadow: '0 12px 40px rgba(201,168,76,0.35)', transition: { duration: 0.22 } }}
+            whileTap={{ scale: 0.97 }}>
+
             <Sparkles className="w-5 h-5" />
             {user ? 'Start planning' : 'Sign in & start planning'}
             <ArrowRight className="w-5 h-5" />
-          </button>
-        </div>
+          </motion.button>
+        </motion.div>
       </section>
 
       </div>{/* end solid background wrapper */}
