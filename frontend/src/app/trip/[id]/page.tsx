@@ -2471,8 +2471,9 @@ export default function TripPage() {
 
           </div>
         )}
+      </AnimatePresence>
 
-      </div>
-    </div>
+    </div >
+    </div >
   )
 }
