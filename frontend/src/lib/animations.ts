@@ -127,6 +127,15 @@ export const modalPanel: Variants = {
     transition: { duration: 0.2, ease: ease.in } },
 }
 
+// ─── Tab switch (used in trip/[id]/page.tsx) ─────────────────────────────────
+export const tabSwitch: Variants = {
+  hidden:  { opacity: 0, y: 10, scale: 0.98 },
+  visible: { opacity: 1, y: 0,  scale: 1,
+    transition: { duration: 0.35, ease: ease.out } },
+  exit:    { opacity: 0, y: -6, scale: 0.98,
+    transition: { duration: 0.2, ease: ease.in } },
+}
+
 // ─── Viewport config ─────────────────────────────────────────────────────────
 export const viewportOnce   = { once: true,  margin: '-60px' }
 export const viewportRepeat = { once: false, margin: '-40px' }
