@@ -2,6 +2,9 @@ import type { Metadata, Viewport } from 'next'
 import './globals.css'
 import { AuthProvider } from '@/context/AuthContext'
 import ProgressBar from '@/components/ProgressBar'
+import LuxuryLoader from '@/components/motion/LuxuryLoader'
+import ScrollProgress from '@/components/motion/ScrollProgress'
+import AuroraBackground from '@/components/motion/AuroraBackground'
 
 export const metadata: Metadata = {
   title: 'TripWise — Intelligent Travel Planning',
@@ -28,6 +31,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <link rel="icon" href="/logo.png" type="image/png" />
       </head>
       <body>
+        {/* Luxury branded loading screen — fades out after 2.2s */}
+        <LuxuryLoader />
+        {/* Gold scroll-progress bar pinned to top of viewport */}
+        <ScrollProgress />
+        {/* Slow ambient aurora orbs — fixed behind all content */}
+        <AuroraBackground />
         <AuthProvider>
           <ProgressBar />
           {children}
