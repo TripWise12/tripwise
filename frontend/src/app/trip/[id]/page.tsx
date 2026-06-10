@@ -450,7 +450,7 @@ interface Slot {
   location: string; lat?: number; lng?: number; notes: string;
   cost_usd: number; cost_local?: number; local_currency?: string;
   booking_required: boolean; booking_link?: string; ticket_link?: string;
-  book_days_ahead?: number; pro_tip?: string; what_to_wear?: string;
+  book_days_ahead?: number; pro_tip?: string; what_to_wear?: string; image_search_term?: string;
 }
 interface Day {
   day: number; date: string; theme: string; day_tip?: string;
@@ -1389,9 +1389,9 @@ export default function TripPage() {
                         </p>
                         <p className="text-xs mt-0.5" style={{ color: '#60a5fa' }}>{w.rain_chance}%</p>
                         <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>{w.condition?.split(' ')[0]}</p>
-                      </motion.div>
+                      </div>
                     ))}
-                  </motion.div>
+                  </div>
                 </Section>
               )}
 
@@ -1577,8 +1577,8 @@ export default function TripPage() {
                 onClick={() => setActiveTab('Itinerary')}>
                 View day-by-day itinerary <ArrowRight className="w-4 h-4" />
               </button>
-            </div>
-        </motion.div>}
+          </motion.div>
+          )}
 
         {/* ── ITINERARY ── */}
         {activeTab === 'Itinerary' && (
@@ -1801,7 +1801,7 @@ export default function TripPage() {
                 </div>
               </div>
             )}
-          </div>
+          </motion.div>
         )}
 
         {/* ── FLIGHTS ── */}
@@ -1951,7 +1951,7 @@ export default function TripPage() {
                   { label: 'SIM Card', key: 'sim_usd', icon: Smartphone, color: '#60a5fa' },
                   { label: 'Miscellaneous', key: 'misc_usd', icon: Package, color: '#6b7280' },
                 ].map(({ label, key, icon: Icon, color }) => {
-                  const val = (budget as Record<string, number>)[key] || 0
+                  const val = (budget as unknown as Record<string, number>)[key] || 0
                   const total = budget.total_usd || 1
                   const pct = Math.round((val / total) * 100)
                   return (
@@ -1982,20 +1982,20 @@ export default function TripPage() {
                 </div>
                 {Number(tripData.group_size) > 1 && (
                   <div className="flex items-center justify-between mt-2">
-                    <span className="text-sm" style={{ color: 'var(--text-muted)' }}>Group total ({tripData.group_size} people)</span>
+                    <span className="text-sm" style={{ color: 'var(--text-muted)' }}>Group total ({String(tripData.group_size)} people)</span>
                     <span className="font-semibold" style={{ color: 'var(--text-secondary)' }}>
-                      ${((budget.per_person_usd || 0) * Number(tripData.group_size)).toLocaleString()}
+                      ${String(((budget.per_person_usd || 0) * Number(tripData.group_size)).toLocaleString())}
                     </span>
                   </div>
                 )}
               </div>
             </div>
 
-            {(budget.budget_tips || []).length > 0 && (
+{((budget.budget_tips as string[]) || []).length > 0 && (
               <div className="glass rounded-2xl p-5">
                 <h3 className="font-semibold mb-4" style={{ color: 'var(--text-primary)' }}>💡 Budget tips</h3>
                 <div className="space-y-2">
-                  {budget.budget_tips.map((tip: string, i: number) => (
+                  {(budget.budget_tips as string[]).map((tip: string, i: number) => (
                     <div key={i} className="flex items-start gap-2">
                       <div className="w-1.5 h-1.5 rounded-full mt-2" style={{ background: 'var(--gold)' }} />
                       <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>{tip}</p>
@@ -2471,9 +2471,10 @@ export default function TripPage() {
 
           </div>
         )}
-      </AnimatePresence>
 
-    </div >
-    </div >
+        </AnimatePresence>
+
+      </div>
+    </div>
   )
 }
