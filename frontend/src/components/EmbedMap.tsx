@@ -34,14 +34,14 @@ interface Props {
 
 // ─── Marker colors by type ────────────────────────────────────────────────────
 const TYPE_CONFIG: Record<string, { color: string; border: string; emoji: string }> = {
-  hotel: { color: '#7c3aed', border: '#6d28d9', emoji: '🏨' },
+  hotel:      { color: '#7c3aed', border: '#6d28d9', emoji: '🏨' },
   restaurant: { color: '#d97706', border: '#b45309', emoji: '🍽️' },
-  activity: { color: '#0369a1', border: '#075985', emoji: '🎯' },
-  transport: { color: '#7c3aed', border: '#6d28d9', emoji: '🚌' },
-  transit: { color: '#0891b2', border: '#0e7490', emoji: '🚇' },
-  airport: { color: '#1d4ed8', border: '#1e40af', emoji: '✈️' },
+  activity:   { color: '#0369a1', border: '#075985', emoji: '🎯' },
+  transport:  { color: '#7c3aed', border: '#6d28d9', emoji: '🚌' },
+  transit:    { color: '#0891b2', border: '#0e7490', emoji: '🚇' },
+  airport:    { color: '#1d4ed8', border: '#1e40af', emoji: '✈️' },
   attraction: { color: '#0369a1', border: '#075985', emoji: '📍' },
-  custom: { color: '#c9a84c', border: '#a07832', emoji: '📌' },
+  custom:     { color: '#c9a84c', border: '#a07832', emoji: '📌' },
 }
 
 const DEFAULT_CONFIG = { color: '#c9a84c', border: '#a07832', emoji: '📍' }
@@ -55,8 +55,8 @@ export default function EmbedMap({
   splitScreen = false,
   showRoute = false,
 }: Props) {
-  const mapRef = useRef<HTMLDivElement>(null)
-  const mapObj = useRef<any>(null)
+  const mapRef  = useRef<HTMLDivElement>(null)
+  const mapObj  = useRef<any>(null)
   const [active, setActive] = useState<number | null>(null)
   const [mapReady, setMapReady] = useState(false)
   const markersRef = useRef<any[]>([])

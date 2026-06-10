@@ -1139,6 +1139,28 @@ export default function TripPage() {
   const [splits, setSplits] = useState<{ from: string; to: string; amount: number }[]>([])
   const [removingMember, setRemovingMember] = useState<string | null>(null)
   const [showSplitModal, setShowSplitModal] = useState(false)
+  const [checklistItems, setChecklistItems] = useState<Record<string, boolean>>({})
+
+  // ── Departure countdown ──────────────────────────────────────────────────
+  const departureLabel = (() => {
+    const startStr = String(tripData.start_date || '')
+    const endStr   = String(tripData.end_date   || '')
+    if (!startStr) return null
+    const today    = new Date(); today.setHours(0,0,0,0)
+    const start    = new Date(startStr); start.setHours(0,0,0,0)
+    const end      = endStr ? new Date(endStr) : null
+    if (end) end.setHours(0,0,0,0)
+    const diff = Math.round((start.getTime() - today.getTime()) / 86400000)
+    if (end && today >= start && today <= end) {
+      const dayNum = Math.round((today.getTime() - start.getTime()) / 86400000) + 1
+      return { text: `Day ${dayNum} of your trip`, color: '#2dd4a0', urgent: false }
+    }
+    if (diff < 0) return { text: 'Trip completed', color: 'var(--text-muted)', urgent: false }
+    if (diff === 0) return { text: '✈️ Departing today!', color: '#c9a84c', urgent: true }
+    if (diff === 1) return { text: '✈️ Departing tomorrow!', color: '#c9a84c', urgent: true }
+    if (diff <= 7)  return { text: `${diff} days to go`, color: '#f59e0b', urgent: true }
+    return { text: `Leaves in ${diff} days`, color: 'var(--text-muted)', urgent: false }
+  })()
   useEffect(() => {
     if (!authLoading && !user) router.replace('/')
   }, [user, authLoading, router])
@@ -1277,6 +1299,21 @@ export default function TripPage() {
             <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>
               {String(tripData.origin || '')} → {itinerary.destination}
             </span>
+            {departureLabel && (
+              <motion.span
+                initial={{ opacity: 0, scale: 0.85 }}
+                animate={{ opacity: 1, scale: 1 }}
+                className="hidden sm:flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full font-medium"
+                style={{
+                  background: `${departureLabel.color}18`,
+                  border: `1px solid ${departureLabel.color}35`,
+                  color: departureLabel.color,
+                }}
+              >
+                <Calendar className="w-3 h-3" />
+                {departureLabel.text}
+              </motion.span>
+            )}
           </div>
           <div className="flex items-center gap-2">
             <button onClick={() => exportToExcel(itinerary, viability, tripData)}
@@ -1351,6 +1388,95 @@ export default function TripPage() {
               variants={tabSwitch} initial="hidden" animate="visible" exit="exit"
               className="tab-content space-y-4">
               <TipsBox tips={viability.page_tips?.overview} />
+
+              {/* ── PRE-TRIP CHECKLIST ── */}
+              {(() => {
+                const ab = itinerary.advance_bookings || []
+                const checks = [
+                  { id: 'visa',     label: 'Visa applied',          done: viability.visa_type === 'Visa-Free' || viability.visa_type === 'No Visa Required' },
+                  { id: 'flights',  label: 'Flights booked',        done: false },
+                  { id: 'hotel',    label: 'Hotel / stay booked',   done: false },
+                  ...ab.filter((b: any) => b.required).slice(0, 3).map((b: any) => ({
+                    id: b.item, label: b.item, done: false
+                  })),
+                  { id: 'packing',  label: 'Packing started',       done: checkedPacking.length > 0 },
+                ]
+                const totalDone = checks.filter(c => checklistItems[c.id] ?? c.done).length
+                const pct = Math.round((totalDone / checks.length) * 100)
+                return (
+                  <div className="glass rounded-2xl p-5">
+                    <div className="flex items-center justify-between mb-4">
+                      <div>
+                        <h3 className="font-semibold" style={{ color: 'var(--text-primary)' }}>Pre-trip checklist</h3>
+                        <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>
+                          {totalDone} of {checks.length} done
+                        </p>
+                      </div>
+                      {/* Progress ring */}
+                      <div style={{ position: 'relative', width: 48, height: 48 }}>
+                        <svg width="48" height="48" style={{ transform: 'rotate(-90deg)' }}>
+                          <circle cx="24" cy="24" r="20" fill="none" stroke="var(--bg-4)" strokeWidth="4" />
+                          <circle cx="24" cy="24" r="20" fill="none"
+                            stroke={pct === 100 ? '#2dd4a0' : '#c9a84c'}
+                            strokeWidth="4"
+                            strokeDasharray={`${2 * Math.PI * 20}`}
+                            strokeDashoffset={`${2 * Math.PI * 20 * (1 - pct / 100)}`}
+                            strokeLinecap="round"
+                            style={{ transition: 'stroke-dashoffset 0.6s ease' }}
+                          />
+                        </svg>
+                        <span style={{
+                          position: 'absolute', inset: 0,
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          fontSize: 11, fontWeight: 700,
+                          color: pct === 100 ? '#2dd4a0' : 'var(--text-primary)'
+                        }}>{pct}%</span>
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      {checks.map((c) => {
+                        const isDone = checklistItems[c.id] ?? c.done
+                        return (
+                          <button
+                            key={c.id}
+                            onClick={() => setChecklistItems(prev => ({ ...prev, [c.id]: !isDone }))}
+                            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition-all"
+                            style={{
+                              background: isDone ? 'rgba(45,212,160,0.05)' : 'var(--bg-3)',
+                              border: `1px solid ${isDone ? 'rgba(45,212,160,0.2)' : 'var(--border)'}`,
+                            }}
+                          >
+                            <div className="w-5 h-5 rounded-md flex items-center justify-center flex-shrink-0 transition-all"
+                              style={{
+                                background: isDone ? '#2dd4a0' : 'var(--bg-4)',
+                                border: `1.5px solid ${isDone ? '#2dd4a0' : 'var(--border)'}`,
+                              }}>
+                              {isDone && <Check className="w-3 h-3" style={{ color: '#0a0f1e' }} />}
+                            </div>
+                            <span className="text-sm flex-1" style={{
+                              color: isDone ? 'var(--text-muted)' : 'var(--text-primary)',
+                              textDecoration: isDone ? 'line-through' : 'none',
+                            }}>{c.label}</span>
+                            {isDone && <span className="text-xs" style={{ color: '#2dd4a0' }}>✓</span>}
+                          </button>
+                        )
+                      })}
+                    </div>
+                    {pct === 100 && (
+                      <motion.div
+                        initial={{ opacity: 0, y: 6 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className="mt-3 p-3 rounded-xl text-center"
+                        style={{ background: 'rgba(45,212,160,0.08)', border: '1px solid rgba(45,212,160,0.2)' }}
+                      >
+                        <p className="text-sm font-semibold" style={{ color: '#2dd4a0' }}>
+                          🎉 All set — have an amazing trip!
+                        </p>
+                      </motion.div>
+                    )}
+                  </div>
+                )
+              })()}
 
               {/* Hero */}
               <div className="liquid-card rounded-2xl p-6" style={{ boxShadow: '0 0 60px rgba(201,168,76,0.05)' }}>
@@ -1587,14 +1713,27 @@ export default function TripPage() {
             className="tab-content">
             <TipsBox tips={viability.page_tips?.itinerary} />
             <div className="flex gap-2 overflow-x-auto pb-4 mb-6">
-              {days.map((day, i) => (
-                <motion.button key={i} onClick={() => setActiveDay(i)}
-                  whileTap={buttonTap}
-                  className={`day-tab flex-shrink-0 flex flex-col items-center py-3 px-4 ${activeDay === i ? 'active' : ''}`}>
-                  <span className="text-xs mb-0.5">Day {day.day}</span>
-                  <span className="text-xs" style={{ color: 'var(--text-muted)' }}>{day.date}</span>
-                </motion.button>
-              ))}
+              {days.map((day, i) => {
+                const wx = viability.daily_weather_forecast?.[i]
+                const wxEmoji = !wx ? '' : wx.icon === 'sunny' || wx.icon === 'clear' ? '☀️' : wx.icon === 'rainy' || wx.icon === 'rain' ? '🌧️' : wx.rain_chance > 50 ? '🌦️' : '⛅'
+                const costColor = day.day_total_usd === 0 ? '#2dd4a0' : day.day_total_usd > 120 ? '#fb7185' : 'var(--text-muted)'
+                return (
+                  <motion.button key={i} onClick={() => setActiveDay(i)}
+                    whileTap={buttonTap}
+                    className={`day-tab flex-shrink-0 flex flex-col items-center py-3 px-4 ${activeDay === i ? 'active' : ''}`}>
+                    <div className="flex items-center gap-1 mb-0.5">
+                      {wxEmoji && <span style={{ fontSize: 11 }}>{wxEmoji}</span>}
+                      <span className="text-xs">Day {day.day}</span>
+                    </div>
+                    <span className="text-xs" style={{ color: 'var(--text-muted)' }}>{day.date}</span>
+                    {day.day_total_usd > 0 && (
+                      <span className="text-xs font-semibold mt-0.5" style={{ color: costColor, fontSize: 10 }}>
+                        ${day.day_total_usd}
+                      </span>
+                    )}
+                  </motion.button>
+                )
+              })}
             </div>
             {days[activeDay] && (
               <div>
@@ -1932,6 +2071,56 @@ export default function TripPage() {
         {activeTab === 'Budget' && (
           <motion.div key="budget" variants={tabSwitch} initial="hidden" animate="visible" exit="exit" className="tab-content space-y-4">
             <TipsBox tips={viability.page_tips?.budget} />
+
+            {/* ── LIVE SPENT VS PLANNED ── */}
+            {expenses.length > 0 && (() => {
+              const totalPlanned = budget.per_person_usd || 0
+              const totalSpent   = expenses.reduce((s, e) => s + Number(e.amount_usd || 0), 0)
+              const splitSpent   = members.length > 1 ? totalSpent / members.length : totalSpent
+              const spentPct     = totalPlanned > 0 ? Math.min(Math.round((splitSpent / totalPlanned) * 100), 100) : 0
+              const overBudget   = splitSpent > totalPlanned
+              const barColor     = overBudget ? '#fb7185' : spentPct > 80 ? '#f59e0b' : '#2dd4a0'
+              return (
+                <div className="glass-gold rounded-2xl p-5">
+                  <div className="flex items-start justify-between mb-3">
+                    <div>
+                      <p className="section-label mb-1">Live spend tracker</p>
+                      <p className="font-display text-2xl font-bold" style={{ color: overBudget ? '#fb7185' : 'var(--text-primary)' }}>
+                        ${splitSpent.toFixed(0)}
+                        <span className="text-sm font-normal ml-2" style={{ color: 'var(--text-muted)' }}>
+                          / ${totalPlanned.toLocaleString()} planned
+                        </span>
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-2xl font-bold font-display" style={{ color: barColor }}>{spentPct}%</p>
+                      <p className="text-xs" style={{ color: 'var(--text-muted)' }}>{overBudget ? 'over budget' : 'of budget'}</p>
+                    </div>
+                  </div>
+                  <div className="rounded-full overflow-hidden mb-3" style={{ height: 8, background: 'var(--bg-4)' }}>
+                    <motion.div
+                      initial={{ width: 0 }}
+                      animate={{ width: `${spentPct}%` }}
+                      transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
+                      style={{ height: '100%', background: barColor, borderRadius: 999 }}
+                    />
+                  </div>
+                  <div className="grid grid-cols-3 gap-3">
+                    {[
+                      { label: 'Spent',     val: `$${splitSpent.toFixed(0)}`,     color: barColor },
+                      { label: 'Remaining', val: `$${Math.max(0, totalPlanned - splitSpent).toFixed(0)}`, color: 'var(--text-primary)' },
+                      { label: 'Per day',   val: (() => { const days = itinerary.days?.length || 1; return `$${(splitSpent / days).toFixed(0)}` })(), color: 'var(--text-muted)' },
+                    ].map(({ label, val, color }) => (
+                      <div key={label} className="glass rounded-xl px-3 py-2 text-center">
+                        <p className="text-xs mb-1" style={{ color: 'var(--text-muted)' }}>{label}</p>
+                        <p className="font-bold text-sm" style={{ color }}>{val}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )
+            })()}
+
             <div className="glass rounded-2xl p-6">
               <div className="flex items-center justify-between mb-6">
                 <h2 className="font-display text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>Budget breakdown</h2>
