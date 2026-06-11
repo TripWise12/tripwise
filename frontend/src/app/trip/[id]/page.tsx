@@ -10,9 +10,10 @@ import {
   Hotel, ArrowRight, X, Loader2, RefreshCw, Plus, Info,
   Zap, Star, AlertTriangle, Sun, CloudRain, Wind,
   Calendar, Music, Flag, Download, ExternalLink, Lightbulb,
-  Train, Bus, Landmark, Coffee, Home, Navigation
+  Train, Bus, Landmark, Coffee, Home, Navigation, Moon
 } from 'lucide-react'
 import { useAuth } from '@/context/AuthContext'
+import { useTheme } from '@/context/ThemeContext'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   staggerContainer, staggerItem, staggerContainerFast,
@@ -23,6 +24,41 @@ import EmbedMap from '@/components/EmbedMap'
 
 const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
 const TABS = ['Overview', 'Itinerary', 'Transport', 'Hotels', 'Packing', 'Budget', 'Group']
+
+// ── Stable image component — uses backend proxy to Unsplash, falls back to Picsum ──
+function hashCode(s: string): number {
+  return s.split('').reduce((a, c) => ((a << 5) - a + c.charCodeAt(0)) | 0, 0)
+}
+
+function PlaceImage({ term, index, alt }: { term: string; index: number; alt: string }) {
+  const seed = Math.abs(hashCode(term + index)) % 1000
+  const fallback = `https://picsum.photos/seed/${seed}/800/300`
+  const [src, setSrc] = useState<string>(fallback)
+  const [loaded, setLoaded] = useState(false)
+
+  useEffect(() => {
+    if (!term) return
+    fetch(`${API}/api/place-image?q=${encodeURIComponent(term)}&sig=${index}`)
+      .then(r => r.ok ? r.json() : null)
+      .then(d => { if (d?.url) setSrc(d.url) })
+      .catch(() => {})
+  }, [term, index])
+
+  return (
+    <>
+      {!loaded && <div className="absolute inset-0 skeleton" />}
+      <img
+        src={src}
+        alt={alt}
+        className="w-full h-full object-cover transition-opacity duration-500"
+        style={{ opacity: loaded ? 1 : 0 }}
+        loading="lazy"
+        onLoad={() => setLoaded(true)}
+        onError={() => { setSrc(fallback); setLoaded(true) }}
+      />
+    </>
+  )
+}
 
 function HotelsTab({ tripData, itinerary }: { tripData: Record<string, unknown>, itinerary: any }) {
   const [hotels, setHotels] = useState<Record<string, unknown> | null>(null)
@@ -1119,6 +1155,7 @@ export default function TripPage() {
   const router = useRouter()
   const params = useParams<{ id: string }>()
   const { user, loading: authLoading } = useAuth()
+  const { theme, toggle: toggleTheme } = useTheme()
   const [activeTab, setActiveTab] = useState('Overview')
   const [activeDay, setActiveDay] = useState(0)
   const [viability, setViability] = useState<Viability | null>(null)
@@ -1140,6 +1177,7 @@ export default function TripPage() {
   const [removingMember, setRemovingMember] = useState<string | null>(null)
   const [showSplitModal, setShowSplitModal] = useState(false)
   const [checklistItems, setChecklistItems] = useState<Record<string, boolean>>({})
+  const [packingSearch, setPackingSearch] = useState('')
 
   // ── Departure countdown ──────────────────────────────────────────────────
   const departureLabel = (() => {
@@ -1285,7 +1323,7 @@ export default function TripPage() {
   return (
     <div className="min-h-screen">
       {/* Top bar */}
-      <div className="sticky top-0 z-50" style={{ background: 'rgba(6,9,18,0.92)', backdropFilter: 'blur(24px)', borderBottom: '1px solid var(--border)' }}>
+      <div className="sticky top-0 z-50" style={{ background: 'var(--bg-0)', opacity: 0.97, backdropFilter: 'blur(24px)', borderBottom: '1px solid var(--border)' }}>
         <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <button onClick={() => router.push('/')} className="flex items-center gap-2">
@@ -1316,6 +1354,19 @@ export default function TripPage() {
             )}
           </div>
           <div className="flex items-center gap-2">
+            {/* Theme toggle */}
+            <button
+              onClick={toggleTheme}
+              aria-label="Toggle dark/light mode"
+              className="flex items-center gap-1.5 text-sm px-3 py-2 rounded-lg transition-all"
+              style={{ background: 'var(--bg-3)', border: '1px solid var(--border)', color: 'var(--text-secondary)' }}
+            >
+              {theme === 'dark'
+                ? <Sun className="w-3.5 h-3.5" style={{ color: 'var(--gold)' }} />
+                : <Moon className="w-3.5 h-3.5" style={{ color: 'var(--gold)' }} />
+              }
+              <span className="hidden sm:inline">{theme === 'dark' ? 'Light' : 'Dark'}</span>
+            </button>
             <button onClick={() => exportToExcel(itinerary, viability, tripData)}
               className="flex items-center gap-2 text-sm px-3 py-2 rounded-lg transition-all"
               style={{ background: 'rgba(201,168,76,0.1)', border: '1px solid rgba(201,168,76,0.25)', color: 'var(--gold-light)' }}>
@@ -1818,13 +1869,7 @@ export default function TripPage() {
                           {/* Attraction image banner — only for non-transport slots */}
                           {slot.type !== 'transport' && slot.image_search_term && (
                             <div className="relative w-full overflow-hidden" style={{ height: '130px' }}>
-                              <img
-                                src={`https://source.unsplash.com/800x300/?${encodeURIComponent(slot.image_search_term)}&sig=${si}`}
-                                alt={slot.title}
-                                className="w-full h-full object-cover"
-                                loading="lazy"
-                                onError={e => { (e.target as HTMLImageElement).style.display = 'none' }}
-                              />
+                              <PlaceImage term={slot.image_search_term} index={si} alt={slot.title} />
                               {/* Dark gradient overlay so text is readable */}
                               <div className="absolute inset-0" style={{ background: 'linear-gradient(to top,rgba(15,22,40,0.85) 0%,rgba(15,22,40,0.1) 60%,transparent 100%)' }} />
                               {/* Time + type badges overlaid bottom-left */}
@@ -1985,6 +2030,25 @@ export default function TripPage() {
                   <p className="text-sm font-semibold" style={{ color: '#2dd4a0' }}>🎉 You're fully packed! Have an amazing trip.</p>
                 </div>
               )}
+              {/* Search filter */}
+              <div className="mt-4 relative">
+                <input
+                  type="text"
+                  className="input-field"
+                  placeholder="Search items… e.g. charger, sunscreen, passport"
+                  value={packingSearch}
+                  onChange={e => setPackingSearch(e.target.value)}
+                  style={{ fontSize: '13px', padding: '10px 36px 10px 38px' }}
+                />
+                <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none" style={{ color: 'var(--text-muted)' }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+                {packingSearch && (
+                  <button onClick={() => setPackingSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--text-muted)' }}>
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
             </div>
 
             {/* Category cards */}
@@ -2000,7 +2064,18 @@ export default function TripPage() {
               }
               return Object.entries(packing).map(([category, items]) => {
                 const meta = catMeta[category.toLowerCase()] || { emoji: '📦', color: '#c9a84c', bg: 'rgba(201,168,76,0.06)', border: 'rgba(201,168,76,0.2)' }
-                const catItems = items as { item: string; essential: boolean; reason: string }[]
+                const rawItems = items as { item: string; essential: boolean; reason: string }[]
+                // Filter by search term
+                const catItems = packingSearch.trim()
+                  ? rawItems.filter(obj => {
+                      const str = typeof obj === 'string' ? obj : obj.item
+                      const reason = typeof obj === 'string' ? '' : (obj.reason || '')
+                      return str.toLowerCase().includes(packingSearch.toLowerCase()) ||
+                             reason.toLowerCase().includes(packingSearch.toLowerCase())
+                    })
+                  : rawItems
+                // Hide empty categories when searching
+                if (packingSearch.trim() && catItems.length === 0) return null
                 const checkedCount = catItems.filter(obj => checkedPacking.includes(typeof obj === 'string' ? obj : obj.item)).length
                 const allDone = checkedCount === catItems.length && catItems.length > 0
                 return (

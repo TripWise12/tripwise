@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next'
 import './globals.css'
 import { AuthProvider } from '@/context/AuthContext'
+import { ThemeProvider } from '@/context/ThemeContext'
 import ProgressBar from '@/components/ProgressBar'
 import LuxuryLoader from '@/components/motion/LuxuryLoader'
 import ScrollProgress from '@/components/motion/ScrollProgress'
@@ -37,10 +38,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <ScrollProgress />
         {/* Slow ambient aurora orbs — fixed behind all content */}
         <AuroraBackground />
-        <AuthProvider>
-          <ProgressBar />
-          {children}
-        </AuthProvider>
+        <ThemeProvider>
+          <AuthProvider>
+            <ProgressBar />
+            {children}
+          </AuthProvider>
+        </ThemeProvider>
       </body>
     </html>
   )

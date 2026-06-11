@@ -59,3 +59,31 @@ def health():
 @app.get("/")
 def root():
     return {"message": "TripWise API — Intelligent Travel Planning"}
+
+@app.get("/api/place-image")
+async def place_image(q: str = "", sig: int = 0):
+    """Return a relevant travel image URL for a place/activity search term.
+    Tries Unsplash API first (if key set), falls back to deterministic Picsum."""
+    import hashlib
+    key = os.getenv("UNSPLASH_ACCESS_KEY", "")
+    seed = int(hashlib.md5(f"{q}{sig}".encode()).hexdigest(), 16) % 1000
+
+    if key and q:
+        try:
+            async with httpx.AsyncClient(timeout=8) as client:
+                r = await client.get(
+                    "https://api.unsplash.com/search/photos",
+                    params={"query": q, "per_page": 1, "page": sig + 1, "orientation": "landscape"},
+                    headers={"Authorization": f"Client-ID {key}"}
+                )
+                data = r.json()
+                results = data.get("results", [])
+                if results:
+                    url = results[0]["urls"].get("regular", "")
+                    if url:
+                        return {"url": url}
+        except Exception as e:
+            logger.warning(f"[PlaceImage] Unsplash failed for '{q}': {e}")
+
+    # Fallback: Picsum with deterministic seed
+    return {"url": f"https://picsum.photos/seed/{seed}/800/300"}

@@ -290,7 +290,12 @@ CRITICAL RULES:
 8. ALL links must be real working URLs (official sites, booking.com, etc.)
 9. Packing list tailored to {req.destination} climate and activities
 10. Personal notes to incorporate: "{req.personal_notes}"
-11. Return ONLY the JSON, nothing else"""
+11. Return ONLY the JSON, nothing else
+12. ALWAYS include all 7 packing_list categories: documents, clothing, toiletries, electronics, medications, money, misc — NEVER omit any category
+13. toiletries MUST include: toothbrush, toothpaste, shampoo, conditioner, body wash/soap, deodorant, face wash, sunscreen, moisturiser, razor, wet wipes, hand sanitiser, insect repellent, nail clippers, mini first aid kit
+14. electronics MUST include: phone charger, charging cable, power bank 20000mAh, universal travel adapter, earphones, portable WiFi or local SIM
+15. clothing MUST include: t-shirts quantity for trip length, underwear 1 per day plus spare, socks, comfortable walking shoes, light jacket, plus all destination-appropriate extras
+16. Every non-transport slot MUST have a unique image_search_term using specific place name and city — e.g. Burj Khalifa Dubai, Shibuya Crossing Tokyo"""
 
     try:
         raw = generate_with_retry(prompt)
