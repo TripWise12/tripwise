@@ -298,106 +298,117 @@ function HotelsTab({ tripData, itinerary }: { tripData: Record<string, unknown>,
 
           {/* Hotel cards */}
           {filtered.map((h: any, i: number) => (
-            <div key={i} className="glass feature-card rounded-2xl p-5 hover-lift">
-              <div className="flex items-start justify-between gap-4 flex-wrap">
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-1 flex-wrap">
-                    {h.badge && <span className="badge badge-gold">{h.badge}</span>}
-                    <span className="badge" style={{
-                      background: h.chain_or_local === 'local' ? 'rgba(74,127,212,0.12)' : 'rgba(167,139,250,0.12)',
-                      color: h.chain_or_local === 'local' ? '#7aa8e8' : '#a78bfa'
-                    }}>{h.chain_or_local === 'local' ? 'Local' : 'Chain'}</span>
-                    {h.free_cancellation && <span className="badge badge-green">Free cancel</span>}
-                    {h.breakfast_included && <span className="badge badge-amber">Breakfast incl.</span>}
+            <div key={i} className="glass feature-card rounded-2xl overflow-hidden hover-lift" style={{ minHeight: '220px' }}>
+              <div className="flex h-full" style={{ minHeight: '220px' }}>
+
+                {/* LEFT — all details */}
+                <div className="flex-1 min-w-0 p-5 flex flex-col justify-between">
+                  <div>
+                    <div className="flex items-center gap-2 mb-1.5 flex-wrap">
+                      {h.badge && <span className="badge badge-gold">{h.badge}</span>}
+                      <span className="badge" style={{
+                        background: h.chain_or_local === 'local' ? 'rgba(74,127,212,0.12)' : 'rgba(167,139,250,0.12)',
+                        color: h.chain_or_local === 'local' ? '#7aa8e8' : '#a78bfa'
+                      }}>{h.chain_or_local === 'local' ? 'Local' : 'Chain'}</span>
+                      {h.free_cancellation && <span className="badge badge-green">Free cancel</span>}
+                      {h.breakfast_included && <span className="badge badge-amber">Breakfast incl.</span>}
+                    </div>
+
+                    <h3 className="font-semibold text-lg leading-tight" style={{ color: 'var(--text-primary)' }}>{h.name}</h3>
+
+                    <div className="flex items-center gap-3 mt-1 flex-wrap">
+                      <span className="text-xs" style={{ color: 'var(--text-muted)' }}>📍 {h.area}</span>
+                      <span className="text-xs" style={{ color: 'var(--text-muted)' }}>{h.distance_to_center}</span>
+                      {h.nearby_metro && <span className="text-xs" style={{ color: '#60a5fa' }}>🚇 {h.nearby_metro}</span>}
+                    </div>
+                    {h.distance_to_main_attraction && (
+                      <p className="text-xs mt-0.5" style={{ color: 'var(--text-secondary)' }}>🏛 {h.distance_to_main_attraction}</p>
+                    )}
+
+                    {/* Rating row */}
+                    <div className="flex items-center gap-2 mt-2 flex-wrap">
+                      <div className="flex items-center gap-1 px-2 py-1 rounded-lg" style={{ background: 'rgba(201,168,76,0.1)' }}>
+                        <span className="font-bold text-sm" style={{ color: 'var(--gold)' }}>{h.rating}</span>
+                        <span className="text-xs" style={{ color: 'var(--text-muted)' }}>/ 10</span>
+                      </div>
+                      <span className="text-xs font-medium" style={{ color: 'var(--text-secondary)' }}>{h.rating_label}</span>
+                      {h.reviews_count && <span className="text-xs" style={{ color: 'var(--text-muted)' }}>({h.reviews_count.toLocaleString()} reviews)</span>}
+                      <div className="flex gap-0.5">
+                        {[...Array(h.stars || 0)].map((_, j) => (
+                          <span key={j} className="text-xs" style={{ color: 'var(--gold)' }}>★</span>
+                        ))}
+                      </div>
+                    </div>
+
+                    <p className="text-sm mt-2 leading-relaxed" style={{ color: 'var(--text-secondary)' }}>{h.why_recommended}</p>
+
+                    {/* Amenities */}
+                    {(h.amenities || []).length > 0 && (
+                      <div className="flex flex-wrap gap-1 mt-2">
+                        {h.amenities.map((a: string, j: number) => (
+                          <span key={j} className="text-xs px-2 py-0.5 rounded-full"
+                            style={{ background: 'var(--bg-4)', color: 'var(--text-muted)' }}>{a}</span>
+                        ))}
+                      </div>
+                    )}
                   </div>
-                  <h3 className="font-semibold text-lg" style={{ color: 'var(--text-primary)' }}>{h.name}</h3>
-                  <div className="flex items-center gap-3 mt-1 flex-wrap">
-                    <span className="text-xs" style={{ color: 'var(--text-muted)' }}>📍 {h.area}</span>
-                    <span className="text-xs" style={{ color: 'var(--text-muted)' }}>{h.distance_to_center}</span>
-                    {h.nearby_metro && <span className="text-xs" style={{ color: '#60a5fa' }}>🚇 {h.nearby_metro}</span>}
+
+                  {/* Bottom row — price + map + book */}
+                  <div className="mt-4 pt-3 flex items-end justify-between gap-3 flex-wrap" style={{ borderTop: '1px solid var(--border)' }}>
+                    <div className="flex items-center gap-3">
+                      <div>
+                        <p className="font-bold text-2xl leading-none" style={{ color: 'var(--text-primary)' }}>${h.price_per_night_usd}</p>
+                        <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>per night</p>
+                        {h.total_usd && <p className="text-sm font-semibold mt-0.5" style={{ color: 'var(--gold-light)' }}>${h.total_usd} total</p>}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      {h.google_maps_search && (
+                        <a href={`https://www.google.com/maps/search/${encodeURIComponent(h.google_maps_search)}`}
+                          target="_blank" rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg"
+                          style={{ background: 'var(--bg-3)', border: '1px solid var(--border)', color: '#60a5fa' }}>
+                          <MapPin className="w-3 h-3" />Maps
+                        </a>
+                      )}
+                      {h.booking_link && (
+                        <a href={h.booking_link} target="_blank" rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg"
+                          style={{ background: 'linear-gradient(135deg,#c9a84c,#a07830)', color: '#060912' }}>
+                          <ExternalLink className="w-3 h-3" />Book now
+                        </a>
+                      )}
+                    </div>
                   </div>
-                  {h.distance_to_main_attraction && (
-                    <p className="text-xs mt-1" style={{ color: 'var(--text-secondary)' }}>🏛 {h.distance_to_main_attraction}</p>
-                  )}
 
-                  {/* Rating */}
-                  <div className="flex items-center gap-2 mt-2">
-                    <div className="flex items-center gap-1 px-2 py-1 rounded-lg"
-                      style={{ background: 'rgba(201,168,76,0.1)' }}>
-                      <span className="font-bold text-sm" style={{ color: 'var(--gold)' }}>{h.rating}</span>
-                      <span className="text-xs" style={{ color: 'var(--text-muted)' }}>/ 10</span>
-                    </div>
-                    <span className="text-xs font-medium" style={{ color: 'var(--text-secondary)' }}>{h.rating_label}</span>
-                    {h.reviews_count && <span className="text-xs" style={{ color: 'var(--text-muted)' }}>({h.reviews_count.toLocaleString()} reviews)</span>}
-                    <div className="flex gap-0.5">
-                      {[...Array(h.stars || 0)].map((_, j) => (
-                        <span key={j} className="text-xs" style={{ color: 'var(--gold)' }}>★</span>
-                      ))}
-                    </div>
-                  </div>
-
-                  <p className="text-sm mt-2" style={{ color: 'var(--text-secondary)' }}>{h.why_recommended}</p>
-
-                  {/* Amenities */}
-                  {(h.amenities || []).length > 0 && (
-                    <div className="flex flex-wrap gap-1 mt-2">
-                      {h.amenities.map((a: string, j: number) => (
-                        <span key={j} className="text-xs px-2 py-0.5 rounded-full"
-                          style={{ background: 'var(--bg-4)', color: 'var(--text-muted)' }}>{a}</span>
-                      ))}
-                    </div>
-                  )}
-
-                  {/* Map link */}
-                  {h.google_maps_search && (
-                    <a href={`https://www.google.com/maps/search/${encodeURIComponent(h.google_maps_search)}`}
-                      target="_blank" rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1.5 text-xs mt-2"
-                      style={{ color: '#60a5fa' }}>
-                      <MapPin className="w-3 h-3" />View on Google Maps
-                    </a>
-                  )}
-                </div>
-
-                {/* Price summary + book */}
-                <div className="text-right flex-shrink-0">
-                  <p className="font-bold text-2xl" style={{ color: 'var(--text-primary)' }}>
-                    ${h.price_per_night_usd}
-                  </p>
-                  <p className="text-xs" style={{ color: 'var(--text-muted)' }}>per night</p>
-                  {h.total_usd && <p className="text-sm font-semibold mt-0.5" style={{ color: 'var(--gold-light)' }}>${h.total_usd} total</p>}
-                </div>
-              </div>
-
-              {/* Per-hotel cross-platform price comparison */}
-              {(() => {
-                const platPrices = (h.platform_prices || h.compare_links || []) as any[]
-                if (!platPrices.length) return null
-                // Find cheapest
-                const minPrice = Math.min(...platPrices.map((p: any) => p.price_per_night_usd || p.price || 999))
-                return (
-                  <div className="mt-3 pt-3" style={{ borderTop: '1px solid var(--border)' }}>
-                    <div className="flex items-center justify-between mb-2">
-                      <p className="text-xs font-semibold" style={{ color: 'var(--text-muted)' }}>📊 Price comparison · all platforms</p>
-                      <span className="text-xs" style={{ color: '#2dd4a0' }}>Sorted cheapest first</span>
-                    </div>
-                    <div className="grid grid-cols-1 gap-1.5">
-                      {[...platPrices].sort((a: any, b: any) => (a.price_per_night_usd || 999) - (b.price_per_night_usd || 999)).map((p: any, j: number) => {
-                        const price = p.price_per_night_usd || p.price
-                        const isCheapest = price === minPrice
-                        return (
-                          <a key={j} href={p.url} target="_blank" rel="noopener noreferrer"
-                            className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover-lift transition-all"
-                            style={{
-                              background: isCheapest ? 'rgba(45,212,160,0.08)' : 'var(--bg-3)',
-                              border: `1px solid ${isCheapest ? 'rgba(45,212,160,0.3)' : 'var(--border)'}`,
-                            }}>
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-2">
-                                <span className="text-xs font-semibold" style={{ color: 'var(--text-primary)' }}>{p.platform || p.name}</span>
-                                {isCheapest && <span className="text-xs px-1.5 py-0.5 rounded font-bold" style={{ background: 'rgba(45,212,160,0.15)', color: '#2dd4a0', fontSize: '9px' }}>CHEAPEST</span>}
-                              </div>
-                              {p.note && <p className="text-xs" style={{ color: 'var(--text-muted)' }}>{p.note}</p>}
+                  {/* Per-hotel cross-platform price comparison */}
+                  {(() => {
+                    const platPrices = (h.platform_prices || h.compare_links || []) as any[]
+                    if (!platPrices.length) return null
+                    const minPrice = Math.min(...platPrices.map((p: any) => p.price_per_night_usd || p.price || 999))
+                    return (
+                      <div className="mt-3 pt-3" style={{ borderTop: '1px solid var(--border)' }}>
+                        <div className="flex items-center justify-between mb-2">
+                          <p className="text-xs font-semibold" style={{ color: 'var(--text-muted)' }}>📊 Price comparison · all platforms</p>
+                          <span className="text-xs" style={{ color: '#2dd4a0' }}>Sorted cheapest first</span>
+                        </div>
+                        <div className="grid grid-cols-1 gap-1.5">
+                          {[...platPrices].sort((a: any, b: any) => (a.price_per_night_usd || 999) - (b.price_per_night_usd || 999)).map((p: any, j: number) => {
+                            const price = p.price_per_night_usd || p.price
+                            const isCheapest = price === minPrice
+                            return (
+                              <a key={j} href={p.url} target="_blank" rel="noopener noreferrer"
+                                className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover-lift transition-all"
+                                style={{
+                                  background: isCheapest ? 'rgba(45,212,160,0.08)' : 'var(--bg-3)',
+                                  border: `1px solid ${isCheapest ? 'rgba(45,212,160,0.3)' : 'var(--border)'}`,
+                                }}>
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-xs font-semibold" style={{ color: 'var(--text-primary)' }}>{p.platform || p.name}</span>
+                                    {isCheapest && <span className="text-xs px-1.5 py-0.5 rounded font-bold" style={{ background: 'rgba(45,212,160,0.15)', color: '#2dd4a0', fontSize: '9px' }}>CHEAPEST</span>}
+                                  </div>
+                                  {p.note && <p className="text-xs" style={{ color: 'var(--text-muted)' }}>{p.note}</p>}
                             </div>
                             <div className="text-right flex-shrink-0">
                               {price && <p className="font-bold text-sm" style={{ color: isCheapest ? '#2dd4a0' : 'var(--text-primary)' }}>${price}<span className="font-normal text-xs" style={{ color: 'var(--text-muted)' }}>/night</span></p>}
@@ -411,6 +422,30 @@ function HotelsTab({ tripData, itinerary }: { tripData: Record<string, unknown>,
                   </div>
                 )
               })()}
+                </div>{/* end left panel */}
+
+                {/* RIGHT — hotel image */}
+                <div className="relative flex-shrink-0 hidden sm:block" style={{ width: '220px' }}>
+                  <PlaceImage
+                    term={`${h.name} ${(tripData.destination as string || '').split(',')[0]} hotel`}
+                    index={i}
+                    alt={h.name}
+                  />
+                  {/* category pill bottom-left */}
+                  <div className="absolute bottom-3 left-3">
+                    <span className="text-xs font-semibold px-2.5 py-1 rounded-full"
+                      style={{
+                        background: 'rgba(0,0,0,0.55)',
+                        color: h.category === 'luxury' ? 'var(--gold-light)' : h.category === 'budget' ? '#2dd4a0' : 'var(--silver)',
+                        backdropFilter: 'blur(6px)',
+                        border: '1px solid rgba(255,255,255,0.1)',
+                      }}>
+                      {h.category || 'hotel'}
+                    </span>
+                  </div>
+                </div>
+
+              </div>{/* end flex row */}
             </div>
           ))}
 
@@ -1865,92 +1900,85 @@ export default function TripPage() {
                         {si < (days[activeDay].slots || []).length - 1 && <div className="timeline-line" />}
                       </div>
                       <div className="pb-5 flex-1">
-                        <div className="glass feature-card rounded-xl overflow-hidden">
-                          {/* Attraction image banner — only for non-transport slots */}
-                          {slot.type !== 'transport' && slot.image_search_term && (
-                            <div className="relative w-full overflow-hidden" style={{ height: '130px' }}>
-                              <PlaceImage term={slot.image_search_term} index={si} alt={slot.title} />
-                              {/* Dark gradient overlay so text is readable */}
-                              <div className="absolute inset-0" style={{ background: 'linear-gradient(to top,rgba(15,22,40,0.85) 0%,rgba(15,22,40,0.1) 60%,transparent 100%)' }} />
-                              {/* Time + type badges overlaid bottom-left */}
-                              <div className="absolute bottom-2 left-3 flex items-center gap-2">
+                        <div className="glass feature-card rounded-xl overflow-hidden flex" style={{ minHeight: slot.type !== 'transport' && slot.image_search_term ? '140px' : undefined }}>
+
+                          {/* LEFT — all details */}
+                          <div className="flex-1 min-w-0 p-4 flex flex-col justify-between">
+                            <div>
+                              {/* Time + type badges */}
+                              <div className="flex items-center gap-2 mb-1.5 flex-wrap">
                                 <span className="font-mono text-xs px-2 py-0.5 rounded"
-                                  style={{ background: 'rgba(0,0,0,0.5)', color: '#fff', backdropFilter: 'blur(4px)' }}>{slot.time}</span>
+                                  style={{ background: 'var(--bg-3)', color: 'var(--text-muted)' }}>{slot.time}</span>
                                 <span className={`badge ${slot.type === 'meal' ? 'badge-amber' : slot.type === 'transport' ? 'badge-purple' : 'badge-gold'}`}>
                                   {slot.type}
                                 </span>
                                 {slot.booking_required && <span className="badge badge-red">Book ahead</span>}
                               </div>
-                              {/* Cost top-right */}
-                              <div className="absolute top-2 right-3 text-right">
-                                <span className="text-sm font-bold px-2 py-0.5 rounded"
-                                  style={{ background: 'rgba(0,0,0,0.5)', color: 'var(--gold-light)', backdropFilter: 'blur(4px)' }}>
+                              <h3 className="font-semibold" style={{ color: 'var(--text-primary)' }}>{slot.title}</h3>
+                              <div className="flex items-center gap-1 mt-0.5">
+                                <MapPin className="w-3 h-3" style={{ color: 'var(--text-muted)' }} />
+                                <span className="text-xs" style={{ color: 'var(--text-muted)' }}>{slot.location}</span>
+                              </div>
+                              {slot.notes && <p className="text-sm mt-2 leading-relaxed" style={{ color: 'var(--text-secondary)' }}>{slot.notes}</p>}
+                              {slot.what_to_wear && (
+                                <p className="text-xs mt-1.5" style={{ color: 'var(--text-muted)' }}>👕 {slot.what_to_wear}</p>
+                              )}
+                              {slot.pro_tip && (
+                                <div className="mt-2 flex items-start gap-2 p-2 rounded-lg"
+                                  style={{ background: 'rgba(201,168,76,0.07)' }}>
+                                  <Star className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" style={{ color: 'var(--gold)' }} />
+                                  <p className="text-xs" style={{ color: 'var(--gold-light)' }}>{slot.pro_tip}</p>
+                                </div>
+                              )}
+                            </div>
+                            {/* Bottom row — cost + duration + links */}
+                            <div className="mt-3 flex items-center justify-between gap-2 flex-wrap">
+                              <div className="flex items-center gap-3">
+                                <span className="font-semibold text-sm" style={{ color: 'var(--text-primary)' }}>
+                                  {slot.cost_usd === 0 ? 'Free' : `$${slot.cost_usd}`}
+                                </span>
+                                {slot.cost_local && slot.local_currency && (
+                                  <span className="text-xs" style={{ color: 'var(--text-muted)' }}>{slot.cost_local} {slot.local_currency}</span>
+                                )}
+                                <span className="text-xs" style={{ color: 'var(--text-muted)' }}>⏱ {slot.duration_mins}m</span>
+                              </div>
+                              <div className="flex gap-2 flex-wrap">
+                                {slot.ticket_link && (
+                                  <a href={slot.ticket_link} target="_blank" rel="noopener noreferrer"
+                                    className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg"
+                                    style={{ background: 'rgba(201,168,76,0.1)', color: 'var(--gold-light)', border: '1px solid rgba(201,168,76,0.2)' }}>
+                                    <Bookmark className="w-3 h-3" />Buy ticket
+                                  </a>
+                                )}
+                                {slot.booking_link && slot.booking_link !== slot.ticket_link && (
+                                  <a href={slot.booking_link} target="_blank" rel="noopener noreferrer"
+                                    className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg"
+                                    style={{ background: 'rgba(201,168,76,0.1)', color: 'var(--gold-light)', border: '1px solid rgba(201,168,76,0.2)' }}>
+                                    <ExternalLink className="w-3 h-3" />
+                                    Book {slot.book_days_ahead ? `(${slot.book_days_ahead}d ahead)` : ''}
+                                  </a>
+                                )}
+                              </div>
+                            </div>
+                          </div>{/* end left */}
+
+                          {/* RIGHT — image (only for non-transport with a search term) */}
+                          {slot.type !== 'transport' && slot.image_search_term && (
+                            <div className="relative flex-shrink-0 hidden sm:block" style={{ width: '180px' }}>
+                              <PlaceImage term={slot.image_search_term} index={si} alt={slot.title} />
+                              {/* gradient fade on left edge to blend with card bg */}
+                              <div className="absolute inset-y-0 left-0 w-8 pointer-events-none"
+                                style={{ background: 'linear-gradient(to right, var(--bg-2), transparent)' }} />
+                              {/* cost pill bottom-right */}
+                              <div className="absolute bottom-2 right-2">
+                                <span className="text-xs font-bold px-2 py-0.5 rounded"
+                                  style={{ background: 'rgba(0,0,0,0.55)', color: 'var(--gold-light)', backdropFilter: 'blur(4px)' }}>
                                   {slot.cost_usd === 0 ? 'Free' : `$${slot.cost_usd}`}
                                 </span>
                               </div>
                             </div>
                           )}
-                          <div className="p-4">
-                            <div className="flex items-start justify-between gap-3 flex-wrap">
-                              <div className="flex-1">
-                                {/* Only show badges here if no image (transport slots) */}
-                                {(slot.type === 'transport' || !slot.image_search_term) && (
-                                  <div className="flex items-center gap-2 mb-1 flex-wrap">
-                                    <span className="font-mono text-xs px-2 py-0.5 rounded"
-                                      style={{ background: 'var(--bg-3)', color: 'var(--text-muted)' }}>{slot.time}</span>
-                                    <span className={`badge ${slot.type === 'meal' ? 'badge-amber' : slot.type === 'transport' ? 'badge-purple' : 'badge-gold'}`}>
-                                      {slot.type}
-                                    </span>
-                                    {slot.booking_required && <span className="badge badge-red">Book ahead</span>}
-                                  </div>
-                                )}
-                                <h3 className="font-semibold" style={{ color: 'var(--text-primary)' }}>{slot.title}</h3>
-                                <div className="flex items-center gap-1 mt-0.5">
-                                  <MapPin className="w-3 h-3" style={{ color: 'var(--text-muted)' }} />
-                                  <span className="text-xs" style={{ color: 'var(--text-muted)' }}>{slot.location}</span>
-                                </div>
-                              </div>
-                              {(slot.type === 'transport' || !slot.image_search_term) && (
-                                <div className="text-right flex-shrink-0">
-                                  <p className="font-semibold" style={{ color: 'var(--text-primary)' }}>
-                                    {slot.cost_usd === 0 ? 'Free' : `$${slot.cost_usd}`}
-                                  </p>
-                                  {slot.cost_local && slot.local_currency && (
-                                    <p className="text-xs" style={{ color: 'var(--text-muted)' }}>{slot.cost_local} {slot.local_currency}</p>
-                                  )}
-                                  <p className="text-xs" style={{ color: 'var(--text-muted)' }}>{slot.duration_mins}m</p>
-                                </div>
-                              )}
-                            </div>
-                            {slot.notes && <p className="text-sm mt-3" style={{ color: 'var(--text-secondary)' }}>{slot.notes}</p>}
-                            {slot.what_to_wear && (
-                              <p className="text-xs mt-2" style={{ color: 'var(--text-muted)' }}>👕 {slot.what_to_wear}</p>
-                            )}
-                            {slot.pro_tip && (
-                              <div className="mt-2 flex items-start gap-2 p-2 rounded-lg"
-                                style={{ background: 'rgba(201,168,76,0.07)' }}>
-                                <Star className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" style={{ color: 'var(--gold)' }} />
-                                <p className="text-xs" style={{ color: 'var(--gold-light)' }}>{slot.pro_tip}</p>
-                              </div>
-                            )}
-                            <div className="flex gap-2 mt-2 flex-wrap">
-                              {slot.ticket_link && (
-                                <a href={slot.ticket_link} target="_blank" rel="noopener noreferrer"
-                                  className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg"
-                                  style={{ background: 'rgba(201,168,76,0.1)', color: 'var(--gold-light)', border: '1px solid rgba(201,168,76,0.2)' }}>
-                                  <Bookmark className="w-3 h-3" />Buy ticket
-                                </a>
-                              )}
-                              {slot.booking_link && slot.booking_link !== slot.ticket_link && (
-                                <a href={slot.booking_link} target="_blank" rel="noopener noreferrer"
-                                  className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg"
-                                  style={{ background: 'rgba(201,168,76,0.1)', color: 'var(--gold-light)', border: '1px solid rgba(201,168,76,0.2)' }}>
-                                  <ExternalLink className="w-3 h-3" />
-                                  Book {slot.book_days_ahead ? `(${slot.book_days_ahead} days ahead)` : ''}
-                                </a>
-                              )}
-                            </div>
-                          </div>{/* end p-4 */}
+
                         </div>
                       </div>
                     </div>
