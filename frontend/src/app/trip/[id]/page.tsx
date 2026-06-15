@@ -1359,24 +1359,29 @@ export default function TripPage() {
     <div className="min-h-screen">
       {/* Top bar */}
       <div className="sticky top-0 z-50" style={{ background: 'var(--bg-0)', opacity: 0.97, backdropFilter: 'blur(24px)', borderBottom: '1px solid var(--border)' }}>
-        <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <button onClick={() => router.push('/')} className="flex items-center gap-2">
+        <div className="max-w-6xl mx-auto px-3 sm:px-4 py-2.5 sm:py-3 flex items-center justify-between gap-2">
+          {/* Left — logo + route */}
+          <div className="flex items-center gap-2 min-w-0 flex-1">
+            <button onClick={() => router.push('/')} className="flex items-center gap-1.5 flex-shrink-0">
               <div className="w-7 h-7 rounded-lg flex items-center justify-center"
                 style={{ background: 'linear-gradient(135deg,#1c2642,#0f1628)', border: '1px solid rgba(201,168,76,0.35)' }}>
                 <Plane className="w-3.5 h-3.5" style={{ color: 'var(--gold)' }} />
               </div>
-              <span className="font-display font-bold text-lg gradient-text">TripWise</span>
+              <span className="font-display font-bold text-base sm:text-lg gradient-text hidden sm:block">TripWise</span>
             </button>
-            <ChevronRight className="w-4 h-4" style={{ color: 'var(--text-muted)' }} />
-            <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>
+            <ChevronRight className="w-3.5 h-3.5 flex-shrink-0 hidden sm:block" style={{ color: 'var(--text-muted)' }} />
+            <span className="text-xs sm:text-sm truncate min-w-0 hidden sm:block" style={{ color: 'var(--text-secondary)' }}>
               {String(tripData.origin || '')} → {itinerary.destination}
+            </span>
+            {/* Mobile: show destination only */}
+            <span className="text-xs font-medium truncate min-w-0 sm:hidden" style={{ color: 'var(--text-secondary)' }}>
+              {itinerary.destination}
             </span>
             {departureLabel && (
               <motion.span
                 initial={{ opacity: 0, scale: 0.85 }}
                 animate={{ opacity: 1, scale: 1 }}
-                className="hidden sm:flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full font-medium"
+                className="hidden sm:flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full font-medium flex-shrink-0"
                 style={{
                   background: `${departureLabel.color}18`,
                   border: `1px solid ${departureLabel.color}35`,
@@ -1388,51 +1393,55 @@ export default function TripPage() {
               </motion.span>
             )}
           </div>
-          <div className="flex items-center gap-2">
+
+          {/* Right — action buttons: icons-only on mobile, icons+text on desktop */}
+          <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
             {/* Theme toggle */}
             <button
               onClick={toggleTheme}
               aria-label="Toggle dark/light mode"
-              className="flex items-center gap-1.5 text-sm px-3 py-2 rounded-lg transition-all"
+              className="flex items-center justify-center gap-1.5 text-sm p-2 sm:px-3 sm:py-2 rounded-lg transition-all"
               style={{ background: 'var(--bg-3)', border: '1px solid var(--border)', color: 'var(--text-secondary)' }}
             >
               {theme === 'dark'
                 ? <Sun className="w-3.5 h-3.5" style={{ color: 'var(--gold)' }} />
                 : <Moon className="w-3.5 h-3.5" style={{ color: 'var(--gold)' }} />
               }
-              <span className="hidden sm:inline">{theme === 'dark' ? 'Light' : 'Dark'}</span>
+              <span className="hidden sm:inline text-xs">{theme === 'dark' ? 'Light' : 'Dark'}</span>
             </button>
             <button onClick={() => exportToExcel(itinerary, viability, tripData)}
-              className="flex items-center gap-2 text-sm px-3 py-2 rounded-lg transition-all"
+              className="flex items-center justify-center gap-1.5 text-sm p-2 sm:px-3 sm:py-2 rounded-lg transition-all"
               style={{ background: 'rgba(201,168,76,0.1)', border: '1px solid rgba(201,168,76,0.25)', color: 'var(--gold-light)' }}>
-              <Download className="w-3.5 h-3.5" />Export
+              <Download className="w-3.5 h-3.5" /><span className="hidden sm:inline text-xs">Export</span>
             </button>
             <button onClick={() => setEditMode(true)}
-              className="flex items-center gap-2 text-sm px-3 py-2 rounded-lg transition-all"
+              className="flex items-center justify-center gap-1.5 text-sm p-2 sm:px-3 sm:py-2 rounded-lg transition-all"
               style={{ background: 'var(--bg-3)', border: '1px solid var(--border)', color: 'var(--text-secondary)' }}>
-              <Edit3 className="w-3.5 h-3.5" />Edit
+              <Edit3 className="w-3.5 h-3.5" /><span className="hidden sm:inline text-xs">Edit</span>
             </button>
             <button onClick={() => router.push('/history')}
-              className="flex items-center gap-2 text-sm px-3 py-2 rounded-lg transition-all"
+              className="hidden sm:flex items-center gap-1.5 text-sm px-3 py-2 rounded-lg transition-all"
               style={{ background: 'var(--bg-3)', border: '1px solid var(--border)', color: 'var(--text-secondary)' }}>
-              <History className="w-3.5 h-3.5" />My trips
+              <History className="w-3.5 h-3.5" /><span className="text-xs">My trips</span>
             </button>
             <button onClick={copyLink}
-              className="flex items-center gap-2 text-sm px-3 py-2 rounded-lg transition-all"
+              className="flex items-center justify-center gap-1.5 text-sm p-2 sm:px-3 sm:py-2 rounded-lg transition-all"
               style={{ background: 'var(--bg-3)', border: '1px solid var(--border)', color: 'var(--text-secondary)' }}>
-              <Share2 className="w-3.5 h-3.5" />{copied ? 'Copied!' : 'Share'}
+              <Share2 className="w-3.5 h-3.5" /><span className="hidden sm:inline text-xs">{copied ? 'Copied!' : 'Share'}</span>
             </button>
           </div>
         </div>
-        <div className="max-w-6xl mx-auto px-4">
-          <div className="flex gap-1 overflow-x-auto pb-px">
+
+        {/* Tab bar — scrollable, touch-friendly */}
+        <div className="max-w-6xl mx-auto px-3 sm:px-4">
+          <div className="flex gap-0.5 sm:gap-1 overflow-x-auto pb-px scrollbar-none" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
             {([
               ['Overview', '🗺️'], ['Itinerary', '📅'], ['Transport', '✈️'],
               ['Hotels', '🏨'], ['Packing', '🎒'], ['Budget', '💰'], ['Group', '👥']
             ] as [string, string][]).map(([tab, emoji]) => (
               <button key={tab} onClick={() => setActiveTab(tab)}
-                className={`day-tab flex-shrink-0 flex items-center gap-1.5 ${activeTab === tab ? 'active' : ''}`}>
-                <span className="text-sm">{emoji}</span>
+                className={`day-tab flex-shrink-0 flex items-center gap-1 sm:gap-1.5 text-xs sm:text-sm py-2.5 px-2.5 sm:px-3 ${activeTab === tab ? 'active' : ''}`}>
+                <span>{emoji}</span>
                 <span>{tab}</span>
               </button>
             ))}
@@ -1442,8 +1451,8 @@ export default function TripPage() {
 
       {/* Edit modal */}
       {editMode && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.75)' }}>
-          <div className="glass rounded-2xl p-6 max-w-lg w-full">
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4" style={{ background: 'rgba(0,0,0,0.75)' }} onClick={() => setEditMode(false)}>
+          <div className="glass rounded-t-2xl sm:rounded-2xl p-5 sm:p-6 w-full sm:max-w-lg" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-semibold" style={{ color: 'var(--text-primary)' }}>Edit itinerary</h3>
               <button onClick={() => setEditMode(false)}><X className="w-5 h-5" style={{ color: 'var(--text-muted)' }} /></button>
@@ -1464,7 +1473,7 @@ export default function TripPage() {
         </div>
       )}
 
-      <div className="max-w-6xl mx-auto px-4 py-8">
+      <div className="max-w-6xl mx-auto px-3 sm:px-4 py-4 sm:py-8 pb-24 sm:pb-10">
 
         <AnimatePresence mode="wait">
 
@@ -1634,7 +1643,7 @@ export default function TripPage() {
               )}
 
               {/* Key info cards */}
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <div className="grid grid-cols-2 gap-2 sm:gap-3 md:grid-cols-4">
                 {[
                   { icon: Shield, label: 'Visa', val: viability.visa_type, sub: viability.visa_cost_usd > 0 ? `$${viability.visa_cost_usd} · ${viability.visa_processing_days} days` : 'Check requirements', link: viability.visa_apply_link },
                   { icon: CreditCard, label: 'Currency', val: viability.currency?.split(' ')[0] || '—', sub: viability.exchange_rate_from_origin, link: undefined },
@@ -1798,7 +1807,7 @@ export default function TripPage() {
             variants={tabSwitch} initial="hidden" animate="visible" exit="exit"
             className="tab-content">
             <TipsBox tips={viability.page_tips?.itinerary} />
-            <div className="flex gap-2 overflow-x-auto pb-4 mb-6">
+            <div className="flex gap-1.5 sm:gap-2 overflow-x-auto pb-3 mb-4 sm:mb-6" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
               {days.map((day, i) => {
                 const wx = viability.daily_weather_forecast?.[i]
                 const wxEmoji = !wx ? '' : wx.icon === 'sunny' || wx.icon === 'clear' ? '☀️' : wx.icon === 'rainy' || wx.icon === 'rain' ? '🌧️' : wx.rain_chance > 50 ? '🌦️' : '⛅'
@@ -1806,12 +1815,13 @@ export default function TripPage() {
                 return (
                   <motion.button key={i} onClick={() => setActiveDay(i)}
                     whileTap={buttonTap}
-                    className={`day-tab flex-shrink-0 flex flex-col items-center py-3 px-4 ${activeDay === i ? 'active' : ''}`}>
+                    className={`day-tab flex-shrink-0 flex flex-col items-center py-2.5 sm:py-3 px-3 sm:px-4 ${activeDay === i ? 'active' : ''}`}
+                    style={{ minWidth: '68px' }}>
                     <div className="flex items-center gap-1 mb-0.5">
                       {wxEmoji && <span style={{ fontSize: 11 }}>{wxEmoji}</span>}
                       <span className="text-xs">Day {day.day}</span>
                     </div>
-                    <span className="text-xs" style={{ color: 'var(--text-muted)' }}>{day.date}</span>
+                    <span className="text-xs" style={{ color: 'var(--text-muted)', fontSize: '10px' }}>{day.date}</span>
                     {day.day_total_usd > 0 && (
                       <span className="text-xs font-semibold mt-0.5" style={{ color: costColor, fontSize: 10 }}>
                         ${day.day_total_usd}
@@ -2208,7 +2218,7 @@ export default function TripPage() {
                       style={{ height: '100%', background: barColor, borderRadius: 999 }}
                     />
                   </div>
-                  <div className="grid grid-cols-3 gap-3">
+                  <div className="grid grid-cols-3 gap-2 sm:gap-3">
                     {[
                       { label: 'Spent',     val: `$${splitSpent.toFixed(0)}`,     color: barColor },
                       { label: 'Remaining', val: `$${Math.max(0, totalPlanned - splitSpent).toFixed(0)}`, color: 'var(--text-primary)' },

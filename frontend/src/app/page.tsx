@@ -371,6 +371,16 @@ function FeatureCard({ icon: Icon, label, desc, color }: {
 function AuthModal({ show, onClose, onSignIn, signingIn }: {
   show: boolean; onClose: () => void; onSignIn: () => void; signingIn: boolean
 }) {
+  // Lock body scroll when modal is open
+  useEffect(() => {
+    if (show) {
+      document.body.style.overflow = 'hidden'
+    } else {
+      document.body.style.overflow = ''
+    }
+    return () => { document.body.style.overflow = '' }
+  }, [show])
+
   return (
     <AnimatePresence>
       {show && (
@@ -381,8 +391,14 @@ function AuthModal({ show, onClose, onSignIn, signingIn }: {
           animate="visible"
           exit="exit"
           onClick={onClose}
-          className="fixed inset-0 z-50 flex items-center justify-center p-4"
-          style={{ background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(12px)' }}
+          style={{
+            position: 'fixed', inset: 0, zIndex: 9999,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            padding: '16px',
+            background: 'rgba(0,0,0,0.85)',
+            backdropFilter: 'blur(12px)',
+            WebkitBackdropFilter: 'blur(12px)',
+          }}
         >
           <motion.div
             key="modal-panel"
@@ -391,8 +407,9 @@ function AuthModal({ show, onClose, onSignIn, signingIn }: {
             animate="visible"
             exit="exit"
             onClick={e => e.stopPropagation()}
-            className="glass rounded-2xl p-8 max-w-sm w-full text-center"
+            className="glass rounded-2xl p-8 w-full text-center"
             style={{
+              maxWidth: '360px',
               border: '1px solid rgba(201,168,76,0.2)',
               boxShadow: '0 40px 80px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.05)',
               position: 'relative', overflow: 'hidden',
@@ -737,7 +754,7 @@ export default function HomePage() {
       </AnimatedNav>
 
       {/* ── Hero ── */}
-      <section className="relative z-10 pt-20 pb-16 px-6 text-center">
+      <section className="relative z-10 pt-20 pb-16 px-4 sm:px-6 text-center">
         {/* Content layer with subtle counter-parallax */}
         <motion.div style={{ x: fgParX, y: fgParY, willChange: 'transform' }}>
           <motion.div
@@ -768,7 +785,7 @@ export default function HomePage() {
             {/* Headline */}
             <motion.h1
               variants={heroItem}
-              className="font-display text-5xl md:text-7xl font-bold mb-4 leading-tight"
+              className="font-display text-4xl sm:text-5xl md:text-7xl font-bold mb-4 leading-tight"
             >
               <span style={{ color: 'var(--text-primary)' }}>Plan your trip to</span>
               <br />
@@ -795,7 +812,7 @@ export default function HomePage() {
               whileHover={{ boxShadow: '0 0 100px rgba(201,168,76,0.1)', borderColor: 'rgba(201,168,76,0.28)' } as any}
               transition={{ duration: 0.4 }}
             >
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
+              <div className="grid grid-cols-1 gap-3 mb-4">
                 <div className="relative">
                   <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: 'var(--text-muted)' }} />
                   <input className="input-field pl-9" placeholder="Flying from (any city)"
@@ -893,7 +910,7 @@ export default function HomePage() {
               initial="hidden"
               whileInView="visible"
               viewport={viewportOnce}
-              className="grid grid-cols-2 md:grid-cols-5 gap-3"
+              className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3"
             >
               {DEST_IMAGES.map(({ city, country, img, emoji }) => (
                 <DestinationCard
@@ -1040,7 +1057,7 @@ export default function HomePage() {
             </motion.div>
 
             {/* Day cards — cinematic assembly */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 mb-6">
               {TOKYO_EXAMPLE.days.map((day, i) => (
                 <ItineraryCard key={i} day={day} index={i} />
               ))}
@@ -1123,7 +1140,7 @@ export default function HomePage() {
               initial="hidden"
               whileInView="visible"
               viewport={viewportOnce}
-              className="grid grid-cols-1 md:grid-cols-3 gap-4"
+              className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4"
             >
               {FEATURES.map(f => (
                 <FeatureCard key={f.label} icon={f.icon} label={f.label} desc={f.desc} color={f.color} />
