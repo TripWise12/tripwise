@@ -437,7 +437,7 @@ function HotelsTab({ tripData, itinerary }: { tripData: Record<string, unknown>,
                       style={{
                         background: 'rgba(0,0,0,0.55)',
                         color: h.category === 'luxury' ? 'var(--gold-light)' : h.category === 'budget' ? '#2dd4a0' : 'var(--silver)',
-                        backdropFilter: 'blur(6px)',
+                        ,
                         border: '1px solid rgba(255,255,255,0.1)',
                       }}>
                       {h.category || 'hotel'}
@@ -1358,7 +1358,7 @@ export default function TripPage() {
   return (
     <div className="min-h-screen">
       {/* Top bar */}
-      <div className="sticky top-0 z-50" style={{ background: 'var(--bg-0)', opacity: 0.97, backdropFilter: 'blur(24px)', borderBottom: '1px solid var(--border)' }}>
+      <div className="sticky top-0 z-50" style={{ background: 'var(--bg-0)', borderBottom: '1px solid var(--border)' }}>
         <div className="max-w-6xl mx-auto px-3 sm:px-4 py-2.5 sm:py-3 flex items-center justify-between gap-2">
           {/* Left — logo + route */}
           <div className="flex items-center gap-2 min-w-0 flex-1">
@@ -1451,7 +1451,7 @@ export default function TripPage() {
 
       {/* Edit modal */}
       {editMode && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4" style={{ background: 'rgba(0,0,0,0.75)' }} onClick={() => setEditMode(false)}>
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4" style={{ background: 'rgba(6,9,18,0.9)' }} onClick={() => setEditMode(false)}>
           <div className="glass rounded-t-2xl sm:rounded-2xl p-5 sm:p-6 w-full sm:max-w-lg" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-semibold" style={{ color: 'var(--text-primary)' }}>Edit itinerary</h3>
@@ -1982,7 +1982,7 @@ export default function TripPage() {
                               {/* cost pill bottom-right */}
                               <div className="absolute bottom-2 right-2">
                                 <span className="text-xs font-bold px-2 py-0.5 rounded"
-                                  style={{ background: 'rgba(0,0,0,0.55)', color: 'var(--gold-light)', backdropFilter: 'blur(4px)' }}>
+                                  style={{ background: 'rgba(0,0,0,0.55)', color: 'var(--gold-light)',  }}>
                                   {slot.cost_usd === 0 ? 'Free' : `$${slot.cost_usd}`}
                                 </span>
                               </div>
@@ -2559,7 +2559,7 @@ export default function TripPage() {
                 }
                 return (
                   <div className="fixed inset-0 z-50 flex items-end md:items-center justify-center p-4"
-                    style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(4px)' }}
+                    style={{ background: 'rgba(0,0,0,0.7)',  }}
                     onClick={e => { if (e.target === e.currentTarget) setShowSplitModal(false) }}>
                     <div className="w-full max-w-md rounded-2xl p-5 space-y-4"
                       style={{ background: 'var(--bg-2)', border: '1px solid rgba(201,168,76,0.3)', maxHeight: '80vh', overflowY: 'auto' }}>

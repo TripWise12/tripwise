@@ -73,10 +73,8 @@
 }
 
 [data-theme="light"] .glass {
-  background: rgba(255, 255, 255, 0.72);
+  background: rgba(245, 248, 255, 0.96);
   border: 1px solid var(--border);
-  backdrop-filter: blur(24px) saturate(160%);
-  -webkit-backdrop-filter: blur(24px) saturate(160%);
 }
 
 [data-theme="light"] .glass-gold {
@@ -266,17 +264,14 @@ body {
 
 /* ── LIQUID GLASS ── */
 .glass {
-  background: rgba(10, 15, 30, 0.55);
+  background: rgba(10, 15, 30, 0.82);
   border: 1px solid var(--border);
-  backdrop-filter: blur(24px) saturate(180%);
-  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  /* backdrop-filter removed — 20+ glass cards on one page destroys GPU on mobile */
 }
 
 .glass-gold {
-  background: rgba(201, 168, 76, 0.06);
+  background: rgba(201, 168, 76, 0.07);
   border: 1px solid rgba(201, 168, 76, 0.18);
-  backdrop-filter: blur(24px) saturate(160%);
-  -webkit-backdrop-filter: blur(24px) saturate(160%);
 }
 
 .glass-hover {
@@ -287,7 +282,6 @@ body {
   border-color: var(--border-hover);
   background: rgba(21, 29, 53, 0.75);
   transform: translateY(-2px);
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(201, 168, 76, 0.1);
 }
 
 /* ── LIQUID GLASS CARD (hero premium) ── */
@@ -295,8 +289,6 @@ body {
   position: relative;
   background: linear-gradient(135deg, rgba(201, 168, 76, 0.08) 0%, rgba(10, 15, 30, 0.7) 50%, rgba(74, 127, 212, 0.06) 100%);
   border: 1px solid rgba(201, 168, 76, 0.2);
-  backdrop-filter: blur(32px) saturate(200%);
-  -webkit-backdrop-filter: blur(32px) saturate(200%);
   overflow: hidden;
 }
 
@@ -336,8 +328,9 @@ body {
 .orb {
   position: absolute;
   border-radius: 50%;
-  filter: blur(100px);
+  filter: blur(48px);
   pointer-events: none;
+  will-change: transform;
 }
 
 /* ── INPUTS ── */
@@ -422,7 +415,6 @@ body {
   font-weight: 500;
   padding: 14px 28px;
   transition: all 0.2s;
-  backdrop-filter: blur(10px);
 }
 
 .btn-secondary:hover {
@@ -444,7 +436,6 @@ body {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  backdrop-filter: blur(10px);
 }
 
 .tag:hover {
@@ -566,7 +557,6 @@ body {
   border: 1px solid var(--border);
   border-radius: 16px;
   padding: 20px;
-  backdrop-filter: blur(20px);
   transition: all 0.3s;
 }
 
@@ -1176,8 +1166,6 @@ nav button:active { transform: translateY(0); }
 .glass {
   background: rgba(10,15,30,0.55);
   border: 1px solid var(--border);
-  backdrop-filter: blur(24px) saturate(180%);
-  -webkit-backdrop-filter: blur(24px) saturate(180%);
   transition: background 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
   will-change: transform, box-shadow;
 }
@@ -1212,8 +1200,6 @@ nav button:active { transform: translateY(0); }
   position: relative;
   background: linear-gradient(135deg, rgba(201,168,76,0.08) 0%, rgba(10,15,30,0.7) 50%, rgba(74,127,212,0.06) 100%);
   border: 1px solid rgba(201,168,76,0.2);
-  backdrop-filter: blur(32px) saturate(200%);
-  -webkit-backdrop-filter: blur(32px) saturate(200%);
   overflow: hidden;
   transition: border-color 0.3s ease, box-shadow 0.3s ease;
 }
@@ -1233,15 +1219,14 @@ nav button:active { transform: translateY(0); }
 .orb {
   position: absolute;
   border-radius: 50%;
-  filter: blur(100px);
+  filter: blur(48px);
   pointer-events: none;
-  animation: orb-float 12s ease-in-out infinite;
+  animation: orb-float 18s ease-in-out infinite;
   will-change: transform;
 }
 @keyframes orb-float {
-  0%,100% { transform: translateY(0) scale(1); }
-  33%      { transform: translateY(-20px) scale(1.05); }
-  66%      { transform: translateY(10px) scale(0.97); }
+  0%,100% { transform: translateY(0); }
+  50%      { transform: translateY(-14px); }
 }
 
 /* ── GLOW GOLD SM (enhanced) ── */

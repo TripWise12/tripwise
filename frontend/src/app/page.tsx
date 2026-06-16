@@ -201,7 +201,7 @@ function DestinationCard({ city, country, img, emoji, onPlan }: {
       <motion.img
         src={img} alt={city}
         style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
-        whileHover={{ scale: 1.08 }}
+        whileHover={{ scale: 1.04 }}
         transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
       />
       {/* Base gradient */}
@@ -268,7 +268,7 @@ function ItineraryCard({ day, index }: { day: typeof TOKYO_EXAMPLE.days[0]; inde
       initial="hidden"
       whileInView="visible"
       viewport={{ once: true, margin: '-40px' }}
-      whileHover={{ y: -6, scale: 1.015, transition: { type: 'spring', stiffness: 300, damping: 25 } }}
+      whileHover={{ y: -3 }}
       className="glass feature-card rounded-2xl p-5"
       style={{ willChange: 'transform' }}
     >
@@ -335,7 +335,7 @@ function FeatureCard({ icon: Icon, label, desc, color }: {
   return (
     <motion.div
       variants={staggerItem}
-      whileHover={{ y: -7, scale: 1.022, transition: { type: 'spring', stiffness: 300, damping: 26 } }}
+      whileHover={{ y: -3 }}
       className="glass feature-card rounded-2xl p-6 cursor-default"
       style={{ willChange: 'transform', position: 'relative', overflow: 'hidden' }}
     >
@@ -345,7 +345,7 @@ function FeatureCard({ icon: Icon, label, desc, color }: {
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           background: `${color}18`, border: `1px solid ${color}28`,
         }}
-        whileHover={{ scale: 1.12, rotate: 4 }}
+        whileHover={{ scale: 1.04 }}
         transition={{ type: 'spring', stiffness: 400, damping: 22 }}
       >
         <Icon className="w-5 h-5" style={{ color }} />
@@ -395,9 +395,7 @@ function AuthModal({ show, onClose, onSignIn, signingIn }: {
             position: 'fixed', inset: 0, zIndex: 9999,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             padding: '16px',
-            background: 'rgba(0,0,0,0.85)',
-            backdropFilter: 'blur(12px)',
-            WebkitBackdropFilter: 'blur(12px)',
+            background: 'rgba(6,9,18,0.92)',
           }}
         >
           <motion.div
@@ -407,11 +405,12 @@ function AuthModal({ show, onClose, onSignIn, signingIn }: {
             animate="visible"
             exit="exit"
             onClick={e => e.stopPropagation()}
-            className="glass rounded-2xl p-8 w-full text-center"
+            className="rounded-2xl p-8 w-full text-center"
             style={{
               maxWidth: '360px',
-              border: '1px solid rgba(201,168,76,0.2)',
-              boxShadow: '0 40px 80px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.05)',
+              background: 'var(--bg-1)',
+              border: '1px solid rgba(201,168,76,0.25)',
+              boxShadow: '0 32px 64px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.06)',
               position: 'relative', overflow: 'hidden',
             }}
           >
@@ -450,7 +449,7 @@ function AuthModal({ show, onClose, onSignIn, signingIn }: {
               disabled={signingIn}
               className="w-full flex items-center justify-center gap-3 py-3.5 px-6 rounded-xl font-semibold text-sm"
               style={{ background: 'white', color: '#1a1a2e', boxShadow: '0 4px 20px rgba(0,0,0,0.3)' }}
-              whileHover={{ scale: 1.02, y: -1, boxShadow: '0 8px 30px rgba(0,0,0,0.4)' }}
+              whileHover={{ scale: 1.01, y: -1 }}
               whileTap={{ scale: 0.98 }}
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
@@ -592,8 +591,8 @@ export default function HomePage() {
   return (
     <motion.div
       className="min-h-screen relative overflow-hidden"
-      initial={{ opacity: 0, scale: 0.98, filter: 'blur(2px)' }}
-      animate={{ opacity: 1, scale: 1, filter: 'blur(0px)' }}
+      initial={{ opacity: 0, scale: 0.99 }}
+      animate={{ opacity: 1, scale: 1 }}
       transition={{ duration: 0.65, ease: [0.16, 1, 0.3, 1], delay: 2.3 }}
     >
       {/* ── Full-screen hero background with parallax ── */}
@@ -684,7 +683,7 @@ export default function HomePage() {
           <motion.div
             className="w-10 h-10 rounded-xl overflow-hidden flex items-center justify-center"
             style={{ background: 'linear-gradient(135deg,#1c2642,#0f1628)', border: '1px solid rgba(201,168,76,0.35)' }}
-            whileHover={{ scale: 1.08, rotate: 4 }}
+            whileHover={{ scale: 1.05 }}
             transition={{ type: 'spring', stiffness: 400, damping: 22 }}
           >
             <Plane className="w-5 h-5" style={{ color: 'var(--gold)' }} />
@@ -768,7 +767,7 @@ export default function HomePage() {
               variants={heroItem}
               className="inline-flex items-center gap-2 mb-8 px-4 py-2 rounded-full"
               style={{ background: 'rgba(201,168,76,0.08)', border: '1px solid rgba(201,168,76,0.22)' }}
-              whileHover={{ scale: 1.05, borderColor: 'rgba(201,168,76,0.45)' }}
+              whileHover={{ scale: 1.02 }}
               transition={{ type: 'spring', stiffness: 400, damping: 25 }}
             >
               <motion.span
@@ -809,7 +808,7 @@ export default function HomePage() {
               variants={heroItem}
               className="liquid-card rounded-2xl p-6 max-w-2xl mx-auto mb-12 w-full"
               style={{ boxShadow: '0 0 80px rgba(201,168,76,0.06)' }}
-              whileHover={{ boxShadow: '0 0 100px rgba(201,168,76,0.1)', borderColor: 'rgba(201,168,76,0.28)' } as any}
+              
               transition={{ duration: 0.4 }}
             >
               <div className="grid grid-cols-1 gap-3 mb-4">
@@ -937,7 +936,7 @@ export default function HomePage() {
                 <motion.div
                   className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
                   style={{ background: 'rgba(201,168,76,0.12)', border: '1px solid rgba(201,168,76,0.25)' }}
-                  whileHover={{ scale: 1.1, rotate: 8 }}
+                  whileHover={{ scale: 1.05 }}
                   transition={{ type: 'spring', stiffness: 400, damping: 22 }}
                 >
                   <Link2 className="w-4 h-4" style={{ color: 'var(--gold)' }} />
