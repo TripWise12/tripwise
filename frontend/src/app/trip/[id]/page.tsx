@@ -409,19 +409,19 @@ function HotelsTab({ tripData, itinerary }: { tripData: Record<string, unknown>,
                                     {isCheapest && <span className="text-xs px-1.5 py-0.5 rounded font-bold" style={{ background: 'rgba(45,212,160,0.15)', color: '#2dd4a0', fontSize: '9px' }}>CHEAPEST</span>}
                                   </div>
                                   {p.note && <p className="text-xs" style={{ color: 'var(--text-muted)' }}>{p.note}</p>}
-                            </div>
-                            <div className="text-right flex-shrink-0">
-                              {price && <p className="font-bold text-sm" style={{ color: isCheapest ? '#2dd4a0' : 'var(--text-primary)' }}>${price}<span className="font-normal text-xs" style={{ color: 'var(--text-muted)' }}>/night</span></p>}
-                              {p.total_usd && <p className="text-xs" style={{ color: 'var(--text-muted)' }}>${p.total_usd} total</p>}
-                            </div>
-                            <ExternalLink className="w-3.5 h-3.5 flex-shrink-0" style={{ color: 'var(--text-muted)' }} />
-                          </a>
+                                </div>
+                                <div className="text-right flex-shrink-0">
+                                  {price && <p className="font-bold text-sm" style={{ color: isCheapest ? '#2dd4a0' : 'var(--text-primary)' }}>${price}<span className="font-normal text-xs" style={{ color: 'var(--text-muted)' }}>/night</span></p>}
+                                  {p.total_usd && <p className="text-xs" style={{ color: 'var(--text-muted)' }}>${p.total_usd} total</p>}
+                                </div>
+                                <ExternalLink className="w-3.5 h-3.5 flex-shrink-0" style={{ color: 'var(--text-muted)' }} />
+                              </a>
                         )
                       })}
-                    </div>
-                  </div>
-                )
-              })()}
+                        </div>
+                      </div>
+                    )
+                  })()}
                 </div>{/* end left panel */}
 
                 {/* RIGHT — hotel image */}
@@ -437,7 +437,6 @@ function HotelsTab({ tripData, itinerary }: { tripData: Record<string, unknown>,
                       style={{
                         background: 'rgba(0,0,0,0.55)',
                         color: h.category === 'luxury' ? 'var(--gold-light)' : h.category === 'budget' ? '#2dd4a0' : 'var(--silver)',
-                        ,
                         border: '1px solid rgba(255,255,255,0.1)',
                       }}>
                       {h.category || 'hotel'}
