@@ -55,49 +55,82 @@ export default function EmbedMap({
   splitScreen = false,
   showRoute = false,
 }: Props) {
-  const mapRef  = useRef<HTMLDivElement>(null)
-  const mapObj  = useRef<any>(null)
+  const mapRef     = useRef<HTMLDivElement>(null)
+  const mapObj     = useRef<any>(null)
+  const leafletRef = useRef<any>(null)
+  const markersRef = useRef<any[]>([])
+  const routeRef   = useRef<any>(null)
   const [active, setActive] = useState<number | null>(null)
   const [mapReady, setMapReady] = useState(false)
-  const markersRef = useRef<any[]>([])
 
   const valid = locations.filter(l => l.lat && l.lng && !isNaN(l.lat) && !isNaN(l.lng))
 
+  // Content-based signature for the current location set. `locations` is
+  // normally rebuilt as a brand-new array by the parent on every render
+  // (e.g. switching itinerary days, changing a hotel filter/sort), so array
+  // identity always "changes" — we can't use it directly as an effect
+  // dependency or the map would either never update or update needlessly.
+  // This string only changes when the actual lat/lng/name/etc. data does.
+  const locationsKey = JSON.stringify(valid)
+
+  // ── Create the Leaflet map once, then re-sync markers/route/view any
+  // time the location data actually changes (new day, new filter, etc.) ──
   useEffect(() => {
-    if (!mapRef.current || mapObj.current || valid.length === 0) return
+    if (!mapRef.current) return
+    let cancelled = false
 
-    // Dynamically import Leaflet (avoids SSR issues)
-    const init = async () => {
-      const L = (await import('leaflet')).default
-      await import('leaflet/dist/leaflet.css' as any)
+    const sync = async () => {
+      // Lazily create the map + tile layer the first time we have a
+      // container ready. Every later sync reuses this same map instance.
+      if (!mapObj.current) {
+        const L = (await import('leaflet')).default
+        await import('leaflet/dist/leaflet.css' as any)
+        if (cancelled || !mapRef.current || mapObj.current) return
 
-      const avgLat = valid.reduce((s, l) => s + l.lat, 0) / valid.length
-      const avgLng = valid.reduce((s, l) => s + l.lng, 0) / valid.length
+        leafletRef.current = L
 
-      const map = L.map(mapRef.current!, {
-        center: [avgLat, avgLng],
-        zoom: valid.length === 1 ? 14 : 13,
-        zoomControl: true,
-        scrollWheelZoom: false,
-        attributionControl: true,
-      })
+        const map = L.map(mapRef.current!, {
+          center: valid.length > 0 ? [valid[0].lat, valid[0].lng] : [20, 0],
+          zoom: valid.length > 0 ? 13 : 2,
+          zoomControl: true,
+          scrollWheelZoom: false,
+          attributionControl: true,
+        })
 
-      mapObj.current = map
+        // ── Tile layer: CartoDB Voyager — light, colorful, modern ──
+        L.tileLayer(
+          'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
+          {
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
+            subdomains: 'abcd',
+            maxZoom: 19,
+          }
+        ).addTo(map)
 
-      // ── Tile layer: CartoDB Voyager — light, colorful, modern ──
-      L.tileLayer(
-        'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
-        {
-          attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
-          subdomains: 'abcd',
-          maxZoom: 19,
-        }
-      ).addTo(map)
+        mapObj.current = map
+        setMapReady(true)
+      }
+
+      if (cancelled) return
+      const L = leafletRef.current
+      const map = mapObj.current
+      if (!L || !map) return
+
+      // ── Clear the previous set of markers/route before drawing the new one ──
+      markersRef.current.forEach((m: any) => m.remove())
+      markersRef.current = []
+      if (routeRef.current) {
+        routeRef.current.remove()
+        routeRef.current = null
+      }
+      setActive(null)
+
+      if (valid.length === 0) return
 
       // ── Draw route polyline if requested or > 1 activity location ──
       const routePoints = valid.filter(l => l.type !== 'hotel' && l.type !== 'transit' && l.type !== 'airport')
       if ((showRoute || routePoints.length > 1) && routePoints.length >= 2) {
-        L.polyline(
+        routeRef.current = L.polyline(
           routePoints.map(l => [l.lat, l.lng]),
           {
             color: '#c9a84c',
@@ -246,17 +279,23 @@ export default function EmbedMap({
 
       markersRef.current = markerList
 
-      // Fit all markers in view
+      // ── Fit / center the view on the current location set ──
       if (valid.length > 1) {
         const bounds = L.latLngBounds(valid.map(l => [l.lat, l.lng]))
-        map.fitBounds(bounds, { padding: [40, 40], maxZoom: 15 })
+        map.fitBounds(bounds, { padding: [40, 40], maxZoom: 15, animate: true })
+      } else {
+        map.setView([valid[0].lat, valid[0].lng], 14, { animate: true })
       }
-
-      setMapReady(true)
     }
 
-    init().catch(console.error)
+    sync().catch(console.error)
 
+    return () => { cancelled = true }
+  }, [locationsKey, showRoute])   // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Destroy the Leaflet map instance only when the component itself
+  // unmounts — NOT on every location-data sync above.
+  useEffect(() => {
     return () => {
       if (mapObj.current) {
         mapObj.current.remove()
@@ -264,7 +303,7 @@ export default function EmbedMap({
         setMapReady(false)
       }
     }
-  }, [])   // eslint-disable-line react-hooks/exhaustive-deps
+  }, [])
 
   // Pan to marker when list item hovered
   const handleListHover = (i: number) => {
@@ -311,7 +350,23 @@ export default function EmbedMap({
       <div style={{ display: 'flex', height: mapHeight }}>
 
         {/* Map container */}
-        <div ref={mapRef} style={{ flex: 1, minWidth: 0, position: 'relative', zIndex: 0 }} />
+        <div style={{ flex: 1, minWidth: 0, position: 'relative', zIndex: 0 }}>
+          <div ref={mapRef} style={{ position: 'absolute', inset: 0 }} />
+          {!mapReady && (
+            <div
+              className="skeleton"
+              style={{
+                position: 'absolute', inset: 0, borderRadius: 0,
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+              }}
+            >
+              <span className="flex items-center gap-1.5 text-xs" style={{ color: 'var(--text-muted)' }}>
+                <MapPin className="w-3.5 h-3.5" />
+                Loading map…
+              </span>
+            </div>
+          )}
+        </div>
 
         {/* Sidebar list */}
         {showList && (
